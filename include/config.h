@@ -159,9 +159,9 @@
 #elif defined(BOARD_SEEED_XIAO_EE03)
    // XIAO ePaper DIY Kit EE03: same glass as the E1003, different carrier.
    // See the pin-map note in src/DEV_Config.h for why almost nothing is shared.
-   // The button is the EE0x family's KEY2, not the E1003's green button on
-   // GPIO 3, and the battery load switch is D5/GPIO 6 — GPIO 40 is not brought
-   // out on the XIAO footprint at all.
+   // The button is the EE0x family button upstream labels "KEY3", not the
+   // E1003 green button on GPIO 3. The battery load switch is D5/GPIO 6 —
+   // GPIO 40 is not brought out on the XIAO footprint at all.
 #define PIN_INTERRUPT     5
 #define PIN_VBAT_SWITCH   6
 #define VBAT_SWITCH_LEVEL HIGH

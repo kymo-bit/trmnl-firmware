@@ -1710,7 +1710,11 @@ static https_request_err_e downloadAndShow()
 
   if (!status && result == HTTPS_SUCCESS) { // this means we already have this image stored in SPIFFS
       char szTemp[36];
-#if BOARD_X_CLASS && !defined(BOARD_SEEED_RETERMINAL_E1003)
+// IT8951 boards are excluded: FastEPD leaves pPrevious NULL for them (the
+// controller holds its own framebuffer, so there is no second host-side
+// buffer), and load_prev_image() would decode into it. Both the reTerminal
+// E1003 and the XIAO EE03 drive an IT8951 — exclude any further one here too.
+#if BOARD_X_CLASS && !defined(BOARD_SEEED_RETERMINAL_E1003) && !defined(BOARD_SEEED_XIAO_EE03)
       if (DisplayedImage::exists()) {
         load_prev_image(); // decode the older image into the previous buffer of FastEPD
       }
