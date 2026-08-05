@@ -207,7 +207,7 @@
 // warning. The NVS value still wins wherever one is stored, so this only
 // changes where a factory-fresh board points before it has been provisioned.
 #ifndef API_BASE_URL
-#define API_BASE_URL                       "https://trmnl.app"
+#define API_BASE_URL                       "http://192.168.4.41:8000"  // gallery BYOS server (baked in)
 #endif
 
 // Abort an image download when the stream goes this long with no data.
