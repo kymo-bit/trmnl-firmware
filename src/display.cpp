@@ -169,6 +169,23 @@ void display_init(void)
 #elif defined (BOARD_SEEED_RETERMINAL_E1003)
     bbep.initIT8951(EPD_MOSI_PIN, EPD_MISO_PIN, EPD_SCK_PIN, EPD_CS_PIN, EPD_BUSY_PIN, EPD_RST_PIN, EPD_EN_PIN, EPD_VCC_EN);
     bbep.setPanelSize(BBEP_DISPLAY_ED103TC2);
+#elif defined (BOARD_SEEED_XIAO_EE03)
+    // Same controller and glass as the E1003 above, so the same driver call —
+    // only the pins differ (src/DEV_Config.h).
+    //
+    // The last two arguments need care. The E1003 has TWO enables: EPD_EN_PIN
+    // (11, panel/TFT) and EPD_VCC_EN (21, IT8951 rail). The EE03 breaks out
+    // only ONE, so EPD_EN_PIN is deliberately passed for BOTH.
+    //
+    // Do NOT pass -1 for the missing one. Both parameters are uint8_t, so -1
+    // arrives as 255, and bbepInitIT8951 checks neither against a sentinel —
+    // it calls pinMode()/digitalWrite() on whatever it is handed. Passing the
+    // real pin twice is safe because the driver drives them identically: both
+    // go OUTPUT, both HIGH at init, then both LOW and both HIGH together on
+    // reset. Two writes to one line is idempotent; a write to GPIO 255 is not
+    // anything.
+    bbep.initIT8951(EPD_MOSI_PIN, EPD_MISO_PIN, EPD_SCK_PIN, EPD_CS_PIN, EPD_BUSY_PIN, EPD_RST_PIN, EPD_EN_PIN, EPD_EN_PIN);
+    bbep.setPanelSize(BBEP_DISPLAY_ED103TC2);
 #endif // X
 #endif // bb_epaper
     Log_info("dev module end");

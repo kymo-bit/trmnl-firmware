@@ -160,6 +160,31 @@
 #define EPD_EN_PIN   11
 #define EPD_BUSY_PIN 13
 #define EPD_VCC_EN   21
+#elif defined(BOARD_SEEED_XIAO_EE03)
+   // XIAO ePaper DIY Kit EE03 — the same ED103TC2 glass and IT8951 controller
+   // as the reTerminal E1003 above, on a DIFFERENT board. The E1003 is a
+   // monolithic PCB with the ESP32-S3 soldered down; the EE03 is a carrier for
+   // a XIAO ESP32-S3 Plus module, so only the XIAO-standard SPI trio survives.
+   // Four of the eight lines move: CS 10->44, RST 12->38, BUSY 13->4,
+   // EN 11->43, and the E1003's separate VCC_EN (21) has no counterpart here.
+   //
+   // Sources, in agreement: Seeed's own Seeed_GFX
+   // User_Setups/Setup511_Seeed_XIAO_EPaper_10inch3.h gives these as XIAO
+   // logical pins (SCLK D8, MISO D9, MOSI D10, CS D7, BUSY D3, RST 38), which
+   // map deterministically onto GPIO 7/8/9/44/4 on the ESP32-S3; koosoli's
+   // ESPHome IT8951 port lists the same numbers independently.
+   //
+   // Confidence is high on every line EXCEPT EPD_EN_PIN, which comes from one
+   // port whose author marks the EE03 variant untested. If the panel stays
+   // blank with SPI otherwise healthy, EN is the first thing to check against
+   // the EE03 schematic.
+#define EPD_SCK_PIN  7
+#define EPD_MOSI_PIN 9
+#define EPD_MISO_PIN 8
+#define EPD_CS_PIN   44
+#define EPD_RST_PIN  38
+#define EPD_EN_PIN   43
+#define EPD_BUSY_PIN 4
 #elif defined(BOARD_X_CLASS)
 // Parallel Eink devices don't explicitly define GPIO pins for the display here
 #else

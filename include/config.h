@@ -156,6 +156,21 @@
 #define PIN_VBAT_SWITCH   40
 #define VBAT_SWITCH_LEVEL HIGH
 #define DEVICE_MODEL      "reterminal_e1003"
+#elif defined(BOARD_SEEED_XIAO_EE03)
+   // XIAO ePaper DIY Kit EE03: same glass as the E1003, different carrier.
+   // See the pin-map note in src/DEV_Config.h for why almost nothing is shared.
+   // The button is the EE0x family's KEY2, not the E1003's green button on
+   // GPIO 3, and the battery load switch is D5/GPIO 6 — GPIO 40 is not brought
+   // out on the XIAO footprint at all.
+#define PIN_INTERRUPT     5
+#define PIN_VBAT_SWITCH   6
+#define VBAT_SWITCH_LEVEL HIGH
+   // The wall runs batteryless from a shared USB-C supply (a locked decision in
+   // gallery-app's buy list), so there is no cell for the ADC to read. Report a
+   // constant rather than noise the server would flag as a dying panel — the
+   // low-battery threshold on the other end is real (LOW_BATTERY_V = 3.45).
+#define FAKE_BATTERY_VOLTAGE
+#define DEVICE_MODEL      "xiao_ee03"
 #endif
 
 // DHCP hostname prefix (hyphens instead of spaces).
@@ -170,7 +185,8 @@
 #endif
 
 #if defined(BOARD_XIAO_EPAPER_DISPLAY) || defined(BOARD_SEEED_RETERMINAL_E1001) ||                                     \
-  defined(BOARD_SEEED_RETERMINAL_E1002) || defined(BOARD_SEEED_RETERMINAL_E1003)
+  defined(BOARD_SEEED_RETERMINAL_E1002) || defined(BOARD_SEEED_RETERMINAL_E1003) ||                                    \
+  defined(BOARD_SEEED_XIAO_EE03)
 #define PIN_BATTERY 1
 #elif defined(BOARD_XTEINK_X4)
 #define PIN_BATTERY 0
@@ -186,7 +202,13 @@
 #define BUTTON_DOUBLE_CLICK_WINDOW         800
 
 #define SERVER_MAX_RETRIES                 3
+// Guarded so a build can bake in its own default with -D API_BASE_URL=...
+// Upstream defines this unconditionally, which makes the flag a redefinition
+// warning. The NVS value still wins wherever one is stored, so this only
+// changes where a factory-fresh board points before it has been provisioned.
+#ifndef API_BASE_URL
 #define API_BASE_URL                       "https://trmnl.app"
+#endif
 
 // Abort an image download when the stream goes this long with no data.
 #define IMAGE_STREAM_INACTIVITY_TIMEOUT_MS 15000
