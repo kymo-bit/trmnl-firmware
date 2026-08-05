@@ -47,7 +47,7 @@
 #define DISPLAY_BMP_IMAGE_SIZE 48062 // in bytes - 62 bytes - header; 48000 bytes - bitmap (480*800 1bpp) / 8
 #define DEFAULT_IMAGE_SIZE     48000
 #if defined(BOARD_X_CLASS)
-#define MAX_IMAGE_SIZE 750000 // Use PSRAM on the ESP32-S3 (all X-class boards have PSRAM)
+#define MAX_IMAGE_SIZE 2000000 // gallery: raised from 750000 — busy 16-grey plates dither past 750KB. Buffer is malloc'd at the actual image size from 8MB PSRAM, so a high cap costs no RAM.
 #else
 #define MAX_IMAGE_SIZE 90000 // largest compressed image we can receive
 #endif
