@@ -3023,45 +3023,44 @@ static void writeSpecialFunction(SPECIAL_FUNCTION function)
   }
 }
 
-// GALLERY_QUIET_PANEL — keep RUNTIME faults off the glass.
+// GALLERY_QUIET_PANEL — nothing displaces a picture that is already hanging.
 //
-// On a gallery wall a framed photograph interrupted by "WIFI WEAK" is worse
-// than anything the fault itself costs: the panel is furniture, and e-paper
-// RETAINS the picture through the outage anyway. The server already tracks
-// per-cell last-seen and staleness, so the fault has a home that is not the
-// wall.
+// THE RULE, in the owner's words: "those errors should not displace an image
+// that is already set on the display. those messages should appear only in web
+// gallery app. this is because an image on the display could exist forever,
+// even with an API error in the background."
 //
-// SEPARATE FLAG FROM GALLERY_NO_BOOT_LOGO on purpose. Branding should go
-// immediately; error screens are worth keeping through bring-up and silencing
-// only once the fleet is proven. Two decisions, two switches.
+// That is the right shape, and it replaced a curated list. The first version
+// named 17 MSG values to suppress and 8 to keep — a list to maintain, and one
+// that drifts as upstream adds message types. ONE PREDICATE subsumes it and
+// handles anything added later for free:
 //
-// The list is EXPLICIT SUPPRESSION, not an allow-list, so anything upstream
-// adds later stays visible by default. That is the safe failure direction: a
-// stray message on the wall is a nuisance, a silently swallowed onboarding
-// screen is a device you cannot recover without serial.
+//     art on the glass       ->  nothing may paint over it
+//     never any art          ->  messages are all this panel can say
 //
-// Deliberately NOT suppressed — every screen you need to bring a device back:
-//   NONE / WIFI_CONNECT / CAPTIVE_WIFI_TIMEOUT  the setup portal and its SSID
-//   FRIENDLY_ID / MAC_NOT_REGISTERED            the ID needed to register it
-//   WIFI_RESET_CONFIRM / POWER_OFF_CONFIRM      answers to a button press
-//   FILL_WHITE                                  a functional clear, not a message
-static bool gallery_quiet(MSG m)
+// It also self-solves the recovery case the list was hand-curating for: a
+// fresh, unconfigured panel has never painted art, so it still shows the setup
+// portal and its SSID. Only a panel already doing its job goes quiet.
+//
+// WHY everPainted() AND NOT exists(). szPrevFile is RTC_DATA_ATTR — it survives
+// deep sleep but NOT a power cycle, and the boot path calls clear(). After a
+// reboot exists() reads false while e-paper is STILL HOLDING the picture, so a
+// failed poll paints an error over a perfectly good photograph. That is the
+// likeliest way the 2026-08-07 soak failure produced what it did. everPainted()
+// lives in NVS and outlives the reboot.
+//
+// ⚠ THE ONE COST, and it is real: a panel that loses its Wi-Fi credentials
+// while art is up keeps showing the art and says nothing. You find out from the
+// app (the cell goes stale), and re-onboarding means joining the captive-portal
+// AP by name rather than reading the SSID off the glass. The portal itself
+// still comes up — only the screen about it is suppressed.
+static bool gallery_quiet(MSG message_type)
 {
 #ifdef GALLERY_QUIET_PANEL
-  switch (m) {
-    case WIFI_FAILED: case WIFI_WEAK: case WIFI_INTERNAL_ERROR:
-    case WIFI_IMAGE_TIMEOUT: case WIFI_RETRY_LIMIT:
-    case API_ERROR: case API_REQUEST_FAILED: case API_SIZE_ERROR:
-    case API_UNABLE_TO_CONNECT: case API_SETUP_FAILED:
-    case API_IMAGE_DOWNLOAD_ERROR: case API_FIRMWARE_UPDATE_ERROR:
-    case MSG_FORMAT_ERROR: case MSG_TOO_BIG:
-    case FW_UPDATE: case FW_UPDATE_SUCCESS: case FW_UPDATE_FAILED:
-      return true;
-    default:
-      return false;
-  }
+  (void)message_type;   // deliberately not consulted — see the rule above
+  return DisplayedImage::everPainted();
 #else
-  (void)m;
+  (void)message_type;
   return false;
 #endif
 }

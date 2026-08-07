@@ -41,28 +41,33 @@ for f in sorted(pathlib.Path("src").rglob("*.cpp")):
 n_macro = sum(p.read_text().count("GALLERY_LOGO(") for p in pathlib.Path("src").rglob("*.cpp"))
 seen.append(f"direct asset refs rewritten to GALLERY_LOGO(): {n_macro}")
 
-# --- GALLERY_QUIET_PANEL: runtime faults must not paint the glass ---------
-q = re.search(r"static bool gallery_quiet\(MSG m\)\n\{\n#ifdef GALLERY_QUIET_PANEL\n(.*?)\n#else",
+# --- GALLERY_QUIET_PANEL: nothing displaces a hanging picture -------------
+q = re.search(r"static bool gallery_quiet\(MSG message_type\)\n\{\n#ifdef GALLERY_QUIET_PANEL\n(.*?)\n#else",
               bl, re.S)
 if not q:
     fail.append("gallery_quiet: not found or not gated")
 else:
-    suppressed = set(re.findall(r"case (\w+):", q.group(1)))
-    # these must NEVER be suppressed -- without them a device cannot be recovered
-    recovery = {"NONE", "WIFI_CONNECT", "CAPTIVE_WIFI_TIMEOUT", "FRIENDLY_ID",
-                "MAC_NOT_REGISTERED", "WIFI_RESET_CONFIRM", "POWER_OFF_CONFIRM",
-                "FILL_WHITE"}
-    trapped = suppressed & recovery
-    if trapped:
-        fail.append(f"gallery_quiet suppresses recovery screens: {sorted(trapped)}")
+    body = q.group(1)
+    # ONE RULE, not a list. A switch here means someone reintroduced the
+    # curated MSG list, which drifts as upstream adds message types.
+    if "switch" in body or "case " in body:
+        fail.append("gallery_quiet has gone back to a curated MSG list")
+    # everPainted(), NOT exists(): exists() is RTC_DATA_ATTR and reads false
+    # after a reboot while e-paper is still holding the picture
+    if "everPainted()" not in body:
+        fail.append("gallery_quiet must ask everPainted(), not exists()")
+    if re.search(r"\bDisplayedImage::exists\(\)", body):
+        fail.append("gallery_quiet uses exists() — false after a power cycle")
     guards = bl.count("if (gallery_quiet(message_type)) return;")
-    # DEFINITIONS only -- the three forward declarations near the top of the
-    # file match the same signature and must not be counted as needing a guard
     overloads = len(re.findall(r"^(?:static )?void showMessageWithLogo\([^;]*\)\n\{", bl, re.M))
-    seen.append(f"gallery_quiet: {len(suppressed)} runtime faults suppressed, "
-                f"{len(recovery)} recovery screens kept, {guards}/{overloads} overloads guarded")
+    seen.append(f"gallery_quiet: one rule (everPainted), {guards}/{overloads} overloads guarded")
     if guards < overloads:
         fail.append(f"showMessageWithLogo: {overloads} overloads, only {guards} guarded")
+
+# the persistent fact itself must be NVS-backed, or it does not survive a reboot
+di = pathlib.Path("src/displayed_image.cpp").read_text()
+if "Preferences" not in di or "putBool" not in di:
+    fail.append("DisplayedImage::everPainted is not persisted to NVS")
 
 print("\n".join("  " + x for x in seen))
 print()
