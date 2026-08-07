@@ -3049,6 +3049,15 @@ static void showMessageWithLogo(MSG message_type, const ApiSetupResponse &apiRes
 // 1 = loading screen (mostly blank, small glyph in lower right corner)
 static uint8_t *storedLogoOrDefault(int iType)
 {
+#ifdef GALLERY_NO_BOOT_LOGO
+   // Single choke point. Returning NULL here strips the mark from EVERY
+   // message screen -- all ~25 showMessageWithLogo() call sites route through
+   // this -- and also skips the read of any custom BRAND asset stored in the
+   // top of FLASH, so a re-branded logo cannot appear either.
+   // display_show_msg() is NULL-safe; see GALLERY_LOGO in display.h.
+   (void)iType;
+   return NULL;
+#else
 //
 // See if there are custom art assets in FLASH memory.
 // The top 4K of FLASH would be reserved for this data.
@@ -3091,6 +3100,7 @@ static uint8_t *storedLogoOrDefault(int iType)
     return const_cast<uint8_t *>(loading);
   }
 #endif
+#endif // GALLERY_NO_BOOT_LOGO
 }
 
 // Chop up long names to fit within the SPIFFS 31 character limit

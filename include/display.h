@@ -138,6 +138,24 @@ void Paint_DrawMultilineText(UWORD x_start, UWORD y_start, const char *message, 
 void display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool bSkipClear = false);
 
 /**
+ * @brief GALLERY_NO_BOOT_LOGO — resolve a logo asset to NULL when the build
+ *        wants no branding on the glass at all.
+ *
+ * display_show_msg() is already NULL-safe on its image_buffer (every use is
+ * guarded, and qa.cpp has always called it with NULL for FILL_WHITE), so a
+ * message screen simply renders its text with no mark above it.
+ *
+ * NOT usable with display_show_image(), which dereferences the buffer
+ * immediately via MOTOLONG() with no NULL check — that call site is guarded
+ * with #ifndef instead. See src/bl.cpp.
+ */
+#ifdef GALLERY_NO_BOOT_LOGO
+#define GALLERY_LOGO(asset) ((uint8_t *)0)
+#else
+#define GALLERY_LOGO(asset) ((uint8_t *)(asset))
+#endif
+
+/**
  * @brief Function to read an image from the file system
  * @param filename
  * @param pointer to file size returned
