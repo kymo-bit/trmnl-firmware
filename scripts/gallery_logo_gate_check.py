@@ -48,10 +48,16 @@ if not q:
     fail.append("gallery_quiet: not found or not gated")
 else:
     body = q.group(1)
-    # ONE RULE, not a list. A switch here means someone reintroduced the
-    # curated MSG list, which drifts as upstream adds message types.
-    if "switch" in body or "case " in body:
-        fail.append("gallery_quiet has gone back to a curated MSG list")
+    # ONE RULE plus exactly one carve-out: the two button confirmations, which
+    # are answers to a physical press, not background faults. Any OTHER case
+    # means someone reintroduced the curated MSG list, which drifts.
+    import re as _re
+    cases = set(_re.findall(r"case (\w+):", body))
+    allowed = {"WIFI_RESET_CONFIRM", "POWER_OFF_CONFIRM"}
+    if cases - allowed:
+        fail.append(f"gallery_quiet suppress-list is back: {sorted(cases - allowed)}")
+    if cases != allowed:
+        fail.append("gallery_quiet lost the button-confirmation carve-out")
     # everPainted(), NOT exists(): exists() is RTC_DATA_ATTR and reads false
     # after a reboot while e-paper is still holding the picture
     if "everPainted()" not in body:

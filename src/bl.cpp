@@ -3054,11 +3054,23 @@ static void writeSpecialFunction(SPECIAL_FUNCTION function)
 // app (the cell goes stale), and re-onboarding means joining the captive-portal
 // AP by name rather than reading the SSID off the glass. The portal itself
 // still comes up — only the screen about it is suppressed.
+// ⚠ CARVE-OUT (bug bash, 2026-08-07): the two BUTTON CONFIRMATIONS bypass the
+// rule. handle_confirmation_flow() shows WIFI_RESET_CONFIRM / POWER_OFF_CONFIRM
+// and then waits 15 s for a tap — through showMessageWithLogo, so the pure
+// one-rule version suppressed them. But these are not background faults: a
+// person is PHYSICALLY HOLDING A BUTTON on the device, and without the screen
+// they get an invisible confirm window and a device that then resets or powers
+// off apparently at random. User-initiated-at-the-panel beats art-stays-up.
 static bool gallery_quiet(MSG message_type)
 {
 #ifdef GALLERY_QUIET_PANEL
-  (void)message_type;   // deliberately not consulted — see the rule above
-  return DisplayedImage::everPainted();
+  switch (message_type) {
+    case WIFI_RESET_CONFIRM:
+    case POWER_OFF_CONFIRM:
+      return false;               // answers to a physical button press
+    default:
+      return DisplayedImage::everPainted();
+  }
 #else
   (void)message_type;
   return false;
