@@ -100,14 +100,14 @@ bool enableShipmentMode() {
   Serial.println("Waiting for USB plug-off to enter shipment mode...");
 
   if (power().usbStatus() == UsbStatus::CONNECTED) {
-    display_show_msg(const_cast<uint8_t *>(logo_medium), READY_TO_SHIP);
+    display_show_msg(GALLERY_LOGO(logo_medium), READY_TO_SHIP);
     while (power().usbStatus() == UsbStatus::CONNECTED) {
       Serial.println("USB power still detected, waiting...");
       delay(2000);
     }
   }
 
-  display_show_msg(const_cast<uint8_t *>(logo_medium), SHIPPING_MODE);
+  display_show_msg(GALLERY_LOGO(logo_medium), SHIPPING_MODE);
 
   // Save that we've started shipment mode (in case battery dies during shipping)
   saveShipmentStarted();
@@ -216,7 +216,7 @@ bool startQA() {
     memset(buffer, 255, 48000);
     display_init();
 
-    display_show_msg(const_cast<uint8_t *>(logo_small), QA_START);
+    display_show_msg(GALLERY_LOGO(logo_small), QA_START);
 
     Log.info("QA Test started\n");
 
@@ -300,7 +300,7 @@ bool startQA() {
   // Disable light sleep before display operation to prevent workflow interruption
     display_set_light_sleep(false);
 
-    display_show_msg(const_cast<uint8_t *>(logo_small), QA_START);
+    display_show_msg(GALLERY_LOGO(logo_small), QA_START);
 
     Log.info("QA Test started\n");
 
@@ -378,7 +378,7 @@ void testLoadScreen() {
   display_init();
   uint8_t *buffer = (uint8_t *)malloc(48000);
   memset(buffer, 255, 48000);
-  display_show_msg(const_cast<uint8_t *>(logo_small), QA_START);
+  display_show_msg(GALLERY_LOGO(logo_small), QA_START);
   free(buffer);
 }
 

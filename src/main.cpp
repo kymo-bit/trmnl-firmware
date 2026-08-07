@@ -38,7 +38,7 @@ void setup() {
         modem_reset_target();
         delay(500);  // let modem reach bootloader
 
-        display_show_msg(const_cast<uint8_t *>(logo_medium), MODEM_FLASHING);
+        display_show_msg(GALLERY_LOGO(logo_medium), MODEM_FLASHING);
 
         Modem modem(115200);
         String flashError;
@@ -47,7 +47,7 @@ void setup() {
           saveModemFlashed();
         } else {
           Serial.println("[MODEM] Factory flash FAILED.");
-          display_show_msg(const_cast<uint8_t *>(logo_medium), MODEM_FLASH_FAILED, flashError.c_str());
+          display_show_msg(GALLERY_LOGO(logo_medium), MODEM_FLASH_FAILED, flashError.c_str());
           delay(5000);
         }
       } else {

@@ -1038,22 +1038,52 @@ void bl_init(void)
 
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
   {
+    // GALLERY_NO_BOOT_LOGO — suppress the boot splash on a gallery wall.
+    //
+    // TWO defects made this visible on the ED103TC2 (1872x1404), and the flag
+    // removes both by removing their only cause:
+    //
+    //  1. IT IS A CORNER GLYPH BY DESIGN. storedLogoOrDefault()'s own comment
+    //     says it: "1 = loading screen (mostly blank, small glyph in lower
+    //     right corner)". So the placement is deliberate, not an artifact --
+    //     TRMNL wants a discreet mark while a dashboard loads. Separately the
+    //     asset IS undersized here: DEFAULT_IMAGE_SIZE is 48000 bytes = 800x480
+    //     at 1bpp, TRMNL's own panel, against the 328536 this glass needs. Both
+    //     are reasons it does not belong, but the corner is intent.
+    //
+    //  2. GHOSTING. These are the ONLY two display_show_image() calls in the
+    //     firmware that pass bSkipClear = true. Every real image passes three
+    //     args and clears normally, which is why the logo is the only thing
+    //     that persists into the picture that follows.
+    //
+    // Nothing functional is lost. DisplayedImage::clear() and
+    // need_to_refresh_display below already force the real image to be
+    // re-fetched and drawn -- the logo was purely a loading screen. On e-paper
+    // that is the wrong idea anyway: the glass RETAINS the last photograph
+    // through power loss, so the previous image is a strictly better loading
+    // screen than any splash, and a reboot becomes invisible.
     Log.info("%s [%d]: Display TRMNL logo start\r\n", __FILE__, __LINE__);
 
 #ifdef BOARD_TRMNL_X
 
     if (!otg_message && WifiCaptivePortal.isSaved()) {
+#ifndef GALLERY_NO_BOOT_LOGO
       display_show_image(storedLogoOrDefault(1), DEFAULT_IMAGE_SIZE, false, true);
+#endif
       if (has_pending_indicator) {
         display_draw_touchbar_indicator(pending_indicator_side, pending_indicator_filled);
         has_pending_indicator = false;
       }
     }
     else if (!WifiCaptivePortal.isSaved()) {
+      // NOT suppressed by GALLERY_NO_BOOT_LOGO — this is the Wi-Fi setup
+      // screen, the only way to onboard an unconfigured device.
       showMessageWithLogo(NONE);
     }
 #else
+#ifndef GALLERY_NO_BOOT_LOGO
     display_show_image(storedLogoOrDefault(1), DEFAULT_IMAGE_SIZE, false, true);
+#endif
 #endif // BOARD_TRMNL_X
     // Force the display to show the current playlist image after the loading screen
     // (even if it hasn't changed)
@@ -2997,8 +3027,63 @@ static void writeSpecialFunction(SPECIAL_FUNCTION function)
   }
 }
 
+// GALLERY_QUIET_PANEL — nothing displaces a picture that is already hanging.
+//
+// THE RULE, in the owner's words: "those errors should not displace an image
+// that is already set on the display. those messages should appear only in web
+// gallery app. this is because an image on the display could exist forever,
+// even with an API error in the background."
+//
+// That is the right shape, and it replaced a curated list. The first version
+// named 17 MSG values to suppress and 8 to keep — a list to maintain, and one
+// that drifts as upstream adds message types. ONE PREDICATE subsumes it and
+// handles anything added later for free:
+//
+//     art on the glass       ->  nothing may paint over it
+//     never any art          ->  messages are all this panel can say
+//
+// It also self-solves the recovery case the list was hand-curating for: a
+// fresh, unconfigured panel has never painted art, so it still shows the setup
+// portal and its SSID. Only a panel already doing its job goes quiet.
+//
+// WHY everPainted() AND NOT exists(). szPrevFile is RTC_DATA_ATTR — it survives
+// deep sleep but NOT a power cycle, and the boot path calls clear(). After a
+// reboot exists() reads false while e-paper is STILL HOLDING the picture, so a
+// failed poll paints an error over a perfectly good photograph. That is the
+// likeliest way the 2026-08-07 soak failure produced what it did. everPainted()
+// lives in NVS and outlives the reboot.
+//
+// ⚠ THE ONE COST, and it is real: a panel that loses its Wi-Fi credentials
+// while art is up keeps showing the art and says nothing. You find out from the
+// app (the cell goes stale), and re-onboarding means joining the captive-portal
+// AP by name rather than reading the SSID off the glass. The portal itself
+// still comes up — only the screen about it is suppressed.
+// ⚠ CARVE-OUT (bug bash, 2026-08-07): the two BUTTON CONFIRMATIONS bypass the
+// rule. handle_confirmation_flow() shows WIFI_RESET_CONFIRM / POWER_OFF_CONFIRM
+// and then waits 15 s for a tap — through showMessageWithLogo, so the pure
+// one-rule version suppressed them. But these are not background faults: a
+// person is PHYSICALLY HOLDING A BUTTON on the device, and without the screen
+// they get an invisible confirm window and a device that then resets or powers
+// off apparently at random. User-initiated-at-the-panel beats art-stays-up.
+static bool gallery_quiet(MSG message_type)
+{
+#ifdef GALLERY_QUIET_PANEL
+  switch (message_type) {
+    case WIFI_RESET_CONFIRM:
+    case POWER_OFF_CONFIRM:
+      return false;               // answers to a physical button press
+    default:
+      return DisplayedImage::everPainted();
+  }
+#else
+  (void)message_type;
+  return false;
+#endif
+}
+
 static void showMessageWithLogo(MSG message_type, String friendly_id, bool id, const char *fw_version, String message)
 {
+  if (gallery_quiet(message_type)) return;
   display_show_msg(storedLogoOrDefault(0), message_type, friendly_id, id, fw_version, message);
   need_to_refresh_display = 1;
   preferences.putBool(PREFERENCES_DEVICE_REGISTERED_KEY, false);
@@ -3006,6 +3091,7 @@ static void showMessageWithLogo(MSG message_type, String friendly_id, bool id, c
 
 void showMessageWithLogo(MSG message_type)
 {
+  if (gallery_quiet(message_type)) return;
   display_show_msg(storedLogoOrDefault(0), message_type);
 }
 
@@ -3017,6 +3103,7 @@ void showMessageWithLogo(MSG message_type)
  */
 static void showMessageWithLogo(MSG message_type, const ApiSetupResponse &apiResponse)
 {
+  if (gallery_quiet(message_type)) return;
   display_show_msg(storedLogoOrDefault(0), message_type, "", false, "", apiResponse.message);
   need_to_refresh_display = 1;
   preferences.putBool(PREFERENCES_DEVICE_REGISTERED_KEY, false);
@@ -3026,6 +3113,15 @@ static void showMessageWithLogo(MSG message_type, const ApiSetupResponse &apiRes
 // 1 = loading screen (mostly blank, small glyph in lower right corner)
 static uint8_t *storedLogoOrDefault(int iType)
 {
+#ifdef GALLERY_NO_BOOT_LOGO
+   // Single choke point. Returning NULL here strips the mark from EVERY
+   // message screen -- all ~25 showMessageWithLogo() call sites route through
+   // this -- and also skips the read of any custom BRAND asset stored in the
+   // top of FLASH, so a re-branded logo cannot appear either.
+   // display_show_msg() is NULL-safe; see GALLERY_LOGO in display.h.
+   (void)iType;
+   return NULL;
+#else
 //
 // See if there are custom art assets in FLASH memory.
 // The top 4K of FLASH would be reserved for this data.
@@ -3068,6 +3164,7 @@ static uint8_t *storedLogoOrDefault(int iType)
     return const_cast<uint8_t *>(loading);
   }
 #endif
+#endif // GALLERY_NO_BOOT_LOGO
 }
 
 // Chop up long names to fit within the SPIFFS 31 character limit
