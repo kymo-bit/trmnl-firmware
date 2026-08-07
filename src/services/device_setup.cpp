@@ -14,6 +14,8 @@
 #include <trmnl_log.h>
 #include <types.h>
 
+#include "../messages.h"
+
 DeviceSetupResult DeviceSetup::perform() {
   _result = DeviceSetupResult();
   performApiSetup();
@@ -40,7 +42,9 @@ void DeviceSetup::performApiSetup() {
   ApiSetupInputs inputs;
   inputs.baseUrl = _persistence.readString(PREFERENCES_API_URL, API_BASE_URL);
   inputs.macAddress = device_mac_address();
-  inputs.firmwareVersion = FW_VERSION_STRING;
+  // same per-build string the display poll reports, so the server's stored
+  // fw_version never flip-flops between the plain and stamped forms
+  inputs.firmwareVersion = Messages::firmware_wire_version();
   inputs.model = String(DEVICE_MODEL);
 
   Log.info("%s [%d]: [HTTPS] begin /api/setup ...\r\n", __FILE__, __LINE__);
