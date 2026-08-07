@@ -1038,22 +1038,49 @@ void bl_init(void)
 
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
   {
+    // GALLERY_NO_BOOT_LOGO — suppress the boot splash on a gallery wall.
+    //
+    // TWO defects made this visible on the ED103TC2 (1872x1404), and the flag
+    // removes both by removing their only cause:
+    //
+    //  1. WRONG-SIZE ASSET. DEFAULT_IMAGE_SIZE is 48000 bytes = 800x480 at
+    //     1bpp -- TRMNL's own panel. On 1872x1404 that buffer covers ~14.6% of
+    //     the framebuffer, so the logo lands in a CORNER rather than filling
+    //     the glass. It was never positioned there; it just ran out of bytes.
+    //
+    //  2. GHOSTING. These are the ONLY two display_show_image() calls in the
+    //     firmware that pass bSkipClear = true. Every real image passes three
+    //     args and clears normally, which is why the logo is the only thing
+    //     that persists into the picture that follows.
+    //
+    // Nothing functional is lost. DisplayedImage::clear() and
+    // need_to_refresh_display below already force the real image to be
+    // re-fetched and drawn -- the logo was purely a loading screen. On e-paper
+    // that is the wrong idea anyway: the glass RETAINS the last photograph
+    // through power loss, so the previous image is a strictly better loading
+    // screen than any splash, and a reboot becomes invisible.
     Log.info("%s [%d]: Display TRMNL logo start\r\n", __FILE__, __LINE__);
 
 #ifdef BOARD_TRMNL_X
 
     if (!otg_message && WifiCaptivePortal.isSaved()) {
+#ifndef GALLERY_NO_BOOT_LOGO
       display_show_image(storedLogoOrDefault(1), DEFAULT_IMAGE_SIZE, false, true);
+#endif
       if (has_pending_indicator) {
         display_draw_touchbar_indicator(pending_indicator_side, pending_indicator_filled);
         has_pending_indicator = false;
       }
     }
     else if (!WifiCaptivePortal.isSaved()) {
+      // NOT suppressed by GALLERY_NO_BOOT_LOGO — this is the Wi-Fi setup
+      // screen, the only way to onboard an unconfigured device.
       showMessageWithLogo(NONE);
     }
 #else
+#ifndef GALLERY_NO_BOOT_LOGO
     display_show_image(storedLogoOrDefault(1), DEFAULT_IMAGE_SIZE, false, true);
+#endif
 #endif // BOARD_TRMNL_X
     // Force the display to show the current playlist image after the loading screen
     // (even if it hasn't changed)
