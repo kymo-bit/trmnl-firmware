@@ -1,7 +1,6 @@
 #include <Arduino.h>
 
 #include "bl.h"
-#include "esp_ota_ops.h"
 #include "power.h"
 #include "qa.h"
 
@@ -72,7 +71,15 @@ void setup() {
   if (!testPassed) {
     startQA();
   }
-  esp_ota_mark_app_valid_cancel_rollback();
+  // NO esp_ota_mark_app_valid_cancel_rollback() HERE. Calling it at boot,
+  // before this image has done anything, confirms a fresh OTA image the
+  // moment it manages to reach setup() — a firmware that boots but cannot
+  // reach the server would be marked good and the bootloader's rollback net
+  // (CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE) permanently disarmed for it. An
+  // image that cannot poll cannot be rescued OVER THE AIR either, so that is
+  // exactly the state rollback must keep covering. The call now lives in
+  // bl.cpp (markFirmwareValidOnceProven), gated on the first parsed
+  // /api/display response of the wake.
   bl_init();
 }
 #endif // !BOARD_TRMNL_X

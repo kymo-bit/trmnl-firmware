@@ -54,6 +54,7 @@
 #include "messages.h"
 #include "displayed_image.h"
 #include <globals.h>
+#include "esp_ota_ops.h"
 const char *szHTTPErrors[] = {
     "HTTPS_NO_ERR",
     "HTTPS_RESET",
@@ -77,6 +78,7 @@ static float vBatt;
 
 static https_request_err_e downloadAndShow(); // download and show the image
 static https_request_err_e handleApiDisplayResponse(ApiDisplayResponse &apiResponse);
+static void markFirmwareValidOnceProven(void); // OTA rollback gate — see definition
 static void resetDeviceCredentials(void);            // reset device credentials API key, Friendly ID, Wi-Fi SSID and password
 void goToSleep(void);                         // sleep preparing
 static void goToSleepButtonOnly(void);               // sleep until button press, no timer
@@ -1640,7 +1642,9 @@ ApiDisplayInputs loadApiDisplayInputs(Preferences &preferences)
   inputs.rssi = wifi.rssi;
   inputs.wifiBand = wifi.band;
   inputs.batteryVoltage = vBatt;
-  inputs.firmwareVersion = String(FW_VERSION_STRING);
+  // per-build version, not FW_VERSION_STRING: the gallery server keys OTA
+  // offers and convergence on this string (see Messages::firmware_wire_version)
+  inputs.firmwareVersion = Messages::firmware_wire_version();
   inputs.firmwareCommit = String(FW_COMMIT);
   inputs.displayWidth = display_width();
   inputs.displayHeight = display_height();
@@ -2179,10 +2183,52 @@ static https_request_err_e downloadAndShow()
   return result;
 }
 
+/**
+ * @brief OTA rollback gate: confirm this firmware image only once it has
+ *        PROVEN it can reach the server.
+ *
+ * With CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE, a freshly OTA'd image boots in
+ * PENDING_VERIFY; if it is not confirmed before the next full reset, the
+ * bootloader reverts to the previous image. main.cpp used to confirm
+ * unconditionally at boot, which disarmed that net for any image that merely
+ * reached setup(). The bar that matters is different: an image that cannot
+ * complete an /api/display round-trip cannot be rescued OVER THE AIR either,
+ * so that — and only that — is the state rollback must keep covering. An
+ * image that polls but has some other defect is by definition still
+ * OTA-reachable, and shipping a fix is the rescue.
+ *
+ * Called from handleApiDisplayResponse, which the caller only enters after
+ * the fetch AND the JSON parse succeeded — any status value (0 / 202 / 500)
+ * is proof of a working round-trip. On builds without the rollback config
+ * the call is a no-op, exactly as the old boot-time call was.
+ */
+static void markFirmwareValidOnceProven(void)
+{
+  static bool done = false; // once per wake; deep sleep restarts the app anyway
+  if (done)
+    return;
+  done = true;
+
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_img_states_t state;
+  if (running != NULL &&
+      esp_ota_get_state_partition(running, &state) == ESP_OK &&
+      state == ESP_OTA_IMG_PENDING_VERIFY)
+  {
+    Log.info("%s [%d]: first server contact on a fresh OTA image — confirming it, rollback cancelled\r\n",
+             __FILE__, __LINE__);
+  }
+  esp_ota_mark_app_valid_cancel_rollback();
+}
+
 https_request_err_e handleApiDisplayResponse(ApiDisplayResponse &apiResponse)
 {
   https_request_err_e result = HTTPS_NO_ERR;
   int file_size = 0;
+
+  // the server answered and the response parsed — this image has earned its
+  // keep (see markFirmwareValidOnceProven for why THIS is the bar)
+  markFirmwareValidOnceProven();
 
 #ifdef BOARD_TRMNL_X
   // Set touchbar mode and persist to NVS
