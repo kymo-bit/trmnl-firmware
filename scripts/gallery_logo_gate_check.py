@@ -41,6 +41,29 @@ for f in sorted(pathlib.Path("src").rglob("*.cpp")):
 n_macro = sum(p.read_text().count("GALLERY_LOGO(") for p in pathlib.Path("src").rglob("*.cpp"))
 seen.append(f"direct asset refs rewritten to GALLERY_LOGO(): {n_macro}")
 
+# --- GALLERY_QUIET_PANEL: runtime faults must not paint the glass ---------
+q = re.search(r"static bool gallery_quiet\(MSG m\)\n\{\n#ifdef GALLERY_QUIET_PANEL\n(.*?)\n#else",
+              bl, re.S)
+if not q:
+    fail.append("gallery_quiet: not found or not gated")
+else:
+    suppressed = set(re.findall(r"case (\w+):", q.group(1)))
+    # these must NEVER be suppressed -- without them a device cannot be recovered
+    recovery = {"NONE", "WIFI_CONNECT", "CAPTIVE_WIFI_TIMEOUT", "FRIENDLY_ID",
+                "MAC_NOT_REGISTERED", "WIFI_RESET_CONFIRM", "POWER_OFF_CONFIRM",
+                "FILL_WHITE"}
+    trapped = suppressed & recovery
+    if trapped:
+        fail.append(f"gallery_quiet suppresses recovery screens: {sorted(trapped)}")
+    guards = bl.count("if (gallery_quiet(message_type)) return;")
+    # DEFINITIONS only -- the three forward declarations near the top of the
+    # file match the same signature and must not be counted as needing a guard
+    overloads = len(re.findall(r"^(?:static )?void showMessageWithLogo\([^;]*\)\n\{", bl, re.M))
+    seen.append(f"gallery_quiet: {len(suppressed)} runtime faults suppressed, "
+                f"{len(recovery)} recovery screens kept, {guards}/{overloads} overloads guarded")
+    if guards < overloads:
+        fail.append(f"showMessageWithLogo: {overloads} overloads, only {guards} guarded")
+
 print("\n".join("  " + x for x in seen))
 print()
 print("\n".join(fail) if fail else "OK — no logo asset can reach the glass under the flag")

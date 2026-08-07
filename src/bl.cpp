@@ -1043,10 +1043,13 @@ void bl_init(void)
     // TWO defects made this visible on the ED103TC2 (1872x1404), and the flag
     // removes both by removing their only cause:
     //
-    //  1. WRONG-SIZE ASSET. DEFAULT_IMAGE_SIZE is 48000 bytes = 800x480 at
-    //     1bpp -- TRMNL's own panel. On 1872x1404 that buffer covers ~14.6% of
-    //     the framebuffer, so the logo lands in a CORNER rather than filling
-    //     the glass. It was never positioned there; it just ran out of bytes.
+    //  1. IT IS A CORNER GLYPH BY DESIGN. storedLogoOrDefault()'s own comment
+    //     says it: "1 = loading screen (mostly blank, small glyph in lower
+    //     right corner)". So the placement is deliberate, not an artifact --
+    //     TRMNL wants a discreet mark while a dashboard loads. Separately the
+    //     asset IS undersized here: DEFAULT_IMAGE_SIZE is 48000 bytes = 800x480
+    //     at 1bpp, TRMNL's own panel, against the 328536 this glass needs. Both
+    //     are reasons it does not belong, but the corner is intent.
     //
     //  2. GHOSTING. These are the ONLY two display_show_image() calls in the
     //     firmware that pass bSkipClear = true. Every real image passes three
@@ -3020,8 +3023,52 @@ static void writeSpecialFunction(SPECIAL_FUNCTION function)
   }
 }
 
+// GALLERY_QUIET_PANEL — keep RUNTIME faults off the glass.
+//
+// On a gallery wall a framed photograph interrupted by "WIFI WEAK" is worse
+// than anything the fault itself costs: the panel is furniture, and e-paper
+// RETAINS the picture through the outage anyway. The server already tracks
+// per-cell last-seen and staleness, so the fault has a home that is not the
+// wall.
+//
+// SEPARATE FLAG FROM GALLERY_NO_BOOT_LOGO on purpose. Branding should go
+// immediately; error screens are worth keeping through bring-up and silencing
+// only once the fleet is proven. Two decisions, two switches.
+//
+// The list is EXPLICIT SUPPRESSION, not an allow-list, so anything upstream
+// adds later stays visible by default. That is the safe failure direction: a
+// stray message on the wall is a nuisance, a silently swallowed onboarding
+// screen is a device you cannot recover without serial.
+//
+// Deliberately NOT suppressed — every screen you need to bring a device back:
+//   NONE / WIFI_CONNECT / CAPTIVE_WIFI_TIMEOUT  the setup portal and its SSID
+//   FRIENDLY_ID / MAC_NOT_REGISTERED            the ID needed to register it
+//   WIFI_RESET_CONFIRM / POWER_OFF_CONFIRM      answers to a button press
+//   FILL_WHITE                                  a functional clear, not a message
+static bool gallery_quiet(MSG m)
+{
+#ifdef GALLERY_QUIET_PANEL
+  switch (m) {
+    case WIFI_FAILED: case WIFI_WEAK: case WIFI_INTERNAL_ERROR:
+    case WIFI_IMAGE_TIMEOUT: case WIFI_RETRY_LIMIT:
+    case API_ERROR: case API_REQUEST_FAILED: case API_SIZE_ERROR:
+    case API_UNABLE_TO_CONNECT: case API_SETUP_FAILED:
+    case API_IMAGE_DOWNLOAD_ERROR: case API_FIRMWARE_UPDATE_ERROR:
+    case MSG_FORMAT_ERROR: case MSG_TOO_BIG:
+    case FW_UPDATE: case FW_UPDATE_SUCCESS: case FW_UPDATE_FAILED:
+      return true;
+    default:
+      return false;
+  }
+#else
+  (void)m;
+  return false;
+#endif
+}
+
 static void showMessageWithLogo(MSG message_type, String friendly_id, bool id, const char *fw_version, String message)
 {
+  if (gallery_quiet(message_type)) return;
   display_show_msg(storedLogoOrDefault(0), message_type, friendly_id, id, fw_version, message);
   need_to_refresh_display = 1;
   preferences.putBool(PREFERENCES_DEVICE_REGISTERED_KEY, false);
@@ -3029,6 +3076,7 @@ static void showMessageWithLogo(MSG message_type, String friendly_id, bool id, c
 
 void showMessageWithLogo(MSG message_type)
 {
+  if (gallery_quiet(message_type)) return;
   display_show_msg(storedLogoOrDefault(0), message_type);
 }
 
@@ -3040,6 +3088,7 @@ void showMessageWithLogo(MSG message_type)
  */
 static void showMessageWithLogo(MSG message_type, const ApiSetupResponse &apiResponse)
 {
+  if (gallery_quiet(message_type)) return;
   display_show_msg(storedLogoOrDefault(0), message_type, "", false, "", apiResponse.message);
   need_to_refresh_display = 1;
   preferences.putBool(PREFERENCES_DEVICE_REGISTERED_KEY, false);
