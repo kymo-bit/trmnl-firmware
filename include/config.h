@@ -165,11 +165,28 @@
 #define PIN_INTERRUPT     5
 #define PIN_VBAT_SWITCH   6
 #define VBAT_SWITCH_LEVEL HIGH
-   // The wall runs batteryless from a shared USB-C supply (a locked decision in
-   // gallery-app's buy list), so there is no cell for the ADC to read. Report a
-   // constant rather than noise the server would flag as a dying panel — the
-   // low-battery threshold on the other end is real (LOW_BATTERY_V = 3.45).
-#define FAKE_BATTERY_VOLTAGE
+   // NO FAKE_BATTERY_VOLTAGE — removed 2026-08-15, and the removal is the
+   // point. It was defined here on the reasoning that the finished wall runs
+   // batteryless from a shared USB-C supply, so there would be no cell for the
+   // ADC to read and a constant beat noise the server might flag as a dying
+   // panel.
+   //
+   // That reasoning was right about the WALL and wrong about every frame
+   // before it. A bench frame has a battery, and the first one soaked for 134
+   // hours reporting a full charge on every poll while it flattened. The
+   // server's own low-battery alarm (LOW_BATTERY_V = 3.45 in api/devices.py)
+   // exists for exactly that and could never fire, because this define made
+   // the input a constant. A telemetry channel that cannot report bad news is
+   // worse than no channel: it reads as reassurance.
+   //
+   // And the premise is now dead outright: the batteryless/shared-supply
+   // decision was REVERSED (D118) and the build is per-frame LiPo — 3.7V
+   // 2500mAh per panel, one in hand and six on order. So there is no future
+   // configuration of this wall in which a constant is the right answer. Every
+   // frame has a cell, and six more are about to be set up.
+   //
+   // If the EE03's ADC turns out not to be wired to anything, that is a fact
+   // worth discovering rather than papering over.
 #define DEVICE_MODEL      "xiao_ee03"
 #endif
 
