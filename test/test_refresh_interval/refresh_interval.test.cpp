@@ -140,6 +140,42 @@ void test_seconds_defaults(void) {
 void setUp(void) {}
 void tearDown(void) {}
 
+void test_server_rate_is_floored(void) {
+  // A stale or mistyped fast rate is how this wall flattened six cells twice.
+  MemoryPersistence persistence;
+  RefreshInterval refreshInterval(persistence);
+  TEST_ASSERT_EQUAL_UINT32(RefreshInterval::MIN_SERVER_SECONDS, refreshInterval.applyServerRate(20));
+  TEST_ASSERT_EQUAL_UINT32(RefreshInterval::MIN_SERVER_SECONDS, refreshInterval.seconds());
+}
+
+void test_server_rate_is_capped(void) {
+  // The field arrives unsigned, so a negative wraps to an enormous value and
+  // arms the timer years out — on a mat-mounted panel that is death, not a nap.
+  MemoryPersistence persistence;
+  RefreshInterval refreshInterval(persistence);
+  TEST_ASSERT_EQUAL_UINT32(RefreshInterval::MAX_SERVER_SECONDS,
+                           refreshInterval.applyServerRate((uint32_t)-1));
+  TEST_ASSERT_EQUAL_UINT32(RefreshInterval::MAX_SERVER_SECONDS, refreshInterval.seconds());
+}
+
+void test_server_rate_in_range_is_untouched(void) {
+  MemoryPersistence persistence;
+  RefreshInterval refreshInterval(persistence);
+  TEST_ASSERT_EQUAL_UINT32(1800, refreshInterval.applyServerRate(1800));
+  TEST_ASSERT_EQUAL_UINT32(60, refreshInterval.applyServerRate(60));
+  TEST_ASSERT_EQUAL_UINT32(86400, refreshInterval.applyServerRate(86400));
+}
+
+void test_wifi_outage_sleeps_on_a_timer_not_forever(void) {
+  // The path this replaces armed no timer at all.
+  MemoryPersistence persistence;
+  RefreshInterval refreshInterval(persistence);
+  TEST_ASSERT_EQUAL_UINT32(3600, refreshInterval.applyWifiOutage());
+  TEST_ASSERT_EQUAL_UINT32(3600, refreshInterval.seconds());
+  // 24 wakes/day at worst, and only while the network is down.
+  TEST_ASSERT_TRUE(86400 / refreshInterval.seconds() <= 24);
+}
+
 void process() {
   UNITY_BEGIN();
   RUN_TEST(test_nvs_keys_are_stable);
@@ -150,6 +186,10 @@ void process() {
   RUN_TEST(test_reset_returns_the_ladder_to_five_seconds);
   RUN_TEST(test_daily_wake_budget_is_bounded);
   RUN_TEST(test_server_rate_is_stored);
+  RUN_TEST(test_server_rate_is_floored);
+  RUN_TEST(test_server_rate_is_capped);
+  RUN_TEST(test_server_rate_in_range_is_untouched);
+  RUN_TEST(test_wifi_outage_sleeps_on_a_timer_not_forever);
   RUN_TEST(test_server_rate_skips_the_write_when_unchanged);
   RUN_TEST(test_server_rate_writes_when_key_is_absent_even_at_the_default);
   RUN_TEST(test_api_retry_ladder);

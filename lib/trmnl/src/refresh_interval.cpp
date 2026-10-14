@@ -8,6 +8,16 @@ uint32_t RefreshInterval::seconds() { return seconds(DEFAULT_SECONDS); }
 uint32_t RefreshInterval::seconds(uint32_t defaultValue) { return persistence.readUint(SLEEP_KEY, defaultValue); }
 
 uint32_t RefreshInterval::applyServerRate(uint32_t rate) {
+  // Clamp before storing: this value becomes the deep-sleep timer, and both
+  // ends of the range are failure modes rather than preferences. See the
+  // constants' comment for why each bound is where it is.
+  if (rate < MIN_SERVER_SECONDS) {
+    Log_error("server rate %u below floor, clamping to %u", rate, MIN_SERVER_SECONDS);
+    rate = MIN_SERVER_SECONDS;
+  } else if (rate > MAX_SERVER_SECONDS) {
+    Log_error("server rate %u above ceiling, clamping to %u", rate, MAX_SERVER_SECONDS);
+    rate = MAX_SERVER_SECONDS;
+  }
   writeIfChanged(rate);
   return rate;
 }
@@ -22,6 +32,11 @@ uint32_t RefreshInterval::applyFastPoll() {
 
 void RefreshInterval::resetFastPollStreak() {
   if (persistence.readUint(STREAK_KEY, 0) != 0) persistence.writeUint(STREAK_KEY, 0);
+}
+
+uint32_t RefreshInterval::applyWifiOutage() {
+  writeIfChanged(WIFI_OUTAGE_SECONDS);
+  return WIFI_OUTAGE_SECONDS;
 }
 
 uint32_t RefreshInterval::applyApiRetry(uint8_t attempt) {

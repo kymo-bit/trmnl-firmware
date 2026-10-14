@@ -3239,7 +3239,20 @@ static void wifiErrorDeepSleep()
     preferences.putInt(PREFERENCES_CONNECT_WIFI_RETRY_COUNT, 1);
     showMessageWithLogo(WIFI_RETRY_LIMIT);
     display_sleep();
-    goToSleepButtonOnly();
+    // SLEEP ON A TIMER, NOT ON THE BUTTON. This used to be
+    // goToSleepButtonOnly(), which arms ext0 and no timer at all: the panel
+    // waits for a press that, on a unit sealed behind a mat, cannot happen.
+    // A router reboot or an AP that comes back a minute later therefore took
+    // a wall panel out permanently, and from the server it is indisinguishable
+    // from a flat battery — the owner's cell 2 showed exactly that, healthy at
+    // 4.10 V and simply never polling again.
+    //
+    // An hour is chosen to be useless as a drain (24 wakes/day at worst, and
+    // only while the network is actually down) and short enough that a panel
+    // rejoins the same day the network does. The button wake survives inside
+    // goToSleep() for anyone whose panel is reachable.
+    refreshInterval.applyWifiOutage();
+    goToSleep();
     return;
   }
   retry_count++;
