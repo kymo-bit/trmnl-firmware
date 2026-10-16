@@ -76,12 +76,52 @@ void tearDown(void) {
   // clean stuff up here
 }
 
+void test_parseResponse_apiDisplay_carries_the_reveal(void) {
+  // Both instants come from the server's clock; the panel waits their
+  // difference, so it needs no clock of its own.
+  String input =
+      "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\","
+      "\"refresh_rate\":1800,\"display_at\":1792191330.5,"
+      "\"server_now\":1792191300.25}";
+  auto res = parseResponse_apiDisplay(input);
+  TEST_ASSERT_EQUAL(ApiDisplayOutcome::Ok, res.outcome);
+  TEST_ASSERT_TRUE(res.display_at > 1792191330.4 && res.display_at < 1792191330.6);
+  TEST_ASSERT_TRUE(res.server_now > 1792191300.2 && res.server_now < 1792191300.3);
+  // the panel waits the DIFFERENCE, so that is what has to survive the parse
+  TEST_ASSERT_TRUE((res.display_at - res.server_now) > 30.2);
+  TEST_ASSERT_TRUE((res.display_at - res.server_now) < 30.3);
+}
+
+void test_parseResponse_apiDisplay_reveal_absent_is_zero(void) {
+  // Almost every poll carries no reveal. Zero is the "nothing pending" value
+  // and must never be mistaken for an instant to wait for.
+  String input =
+      "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\",\"refresh_rate\":1800}";
+  auto res = parseResponse_apiDisplay(input);
+  TEST_ASSERT_EQUAL(ApiDisplayOutcome::Ok, res.outcome);
+  TEST_ASSERT_TRUE(res.display_at == 0.0);
+  TEST_ASSERT_TRUE(res.server_now == 0.0);
+}
+
+void test_parseResponse_apiDisplay_reveal_null_is_zero(void) {
+  // The server sends JSON null rather than omitting the keys when idle.
+  String input =
+      "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\","
+      "\"refresh_rate\":1800,\"display_at\":null,\"server_now\":null}";
+  auto res = parseResponse_apiDisplay(input);
+  TEST_ASSERT_TRUE(res.display_at == 0.0);
+  TEST_ASSERT_TRUE(res.server_now == 0.0);
+}
+
 void process() {
   UNITY_BEGIN();
   RUN_TEST(test_parseResponse_apiDisplay_success);
   RUN_TEST(test_parseResponse_apiDisplay_deserializationError);
   RUN_TEST(test_parseResponse_apiDisplay_treats_unknown_sf_as_none);
   RUN_TEST(test_parseResponse_apiDisplay_missing_fields);
+  RUN_TEST(test_parseResponse_apiDisplay_carries_the_reveal);
+  RUN_TEST(test_parseResponse_apiDisplay_reveal_absent_is_zero);
+  RUN_TEST(test_parseResponse_apiDisplay_reveal_null_is_zero);
   UNITY_END();
 }
 

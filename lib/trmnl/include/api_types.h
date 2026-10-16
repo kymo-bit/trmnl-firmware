@@ -41,6 +41,12 @@ struct ApiDisplayResponse {
   bool maximum_compatibility;
   String firmware_url;
   uint64_t refresh_rate;
+  // The synchronized reveal: the instant every panel in a wave should START
+  // its refresh, and the server's clock at the moment it said so. Both from
+  // the SERVER, so a panel needs no clock of its own — it waits the
+  // difference. 0 when nothing is pending, which is almost every poll.
+  double display_at;
+  double server_now;
   uint32_t temp_profile;
   bool reset_firmware;
   SPECIAL_FUNCTION special_function;

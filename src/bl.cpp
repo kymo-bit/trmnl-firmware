@@ -95,6 +95,41 @@ int png_to_epd(const uint8_t *pPNG, int iDataSize, bool bPrevious);
 
 static unsigned long startup_time = 0;
 
+// --- the synchronized reveal ------------------------------------------------
+// Six identical panels running identical waveforms look like one event only if
+// they START together. Poll times cannot deliver that: the wake timer drifts a
+// few seconds per panel per cycle, and the download that follows varies too.
+// So the server names one instant and every panel holds its finished image
+// until then.
+//
+// Both numbers come from the SERVER's clock, so no panel needs one of its own
+// — the wait is their difference, counted from when the response was parsed. A
+// plain "wait N seconds" would reproduce exactly the jitter this removes.
+static double reveal_display_at = 0.0;
+static double reveal_server_now = 0.0;
+static uint32_t reveal_parsed_at = 0;
+
+//: Ceiling on the hold. The server bounds it too, but a battery-powered panel
+//: must never be parked awake by a number it was merely handed.
+static const uint32_t REVEAL_MAX_HOLD_MS = 120000;
+
+static void holdForReveal()
+{
+  if (reveal_display_at <= 0.0 || reveal_server_now <= 0.0) return;
+  if (reveal_display_at <= reveal_server_now) return;
+  long hold = (long)((reveal_display_at - reveal_server_now) * 1000.0)
+              - (long)(millis() - reveal_parsed_at);
+  if (hold <= 0) return;
+  if (hold > (long)REVEAL_MAX_HOLD_MS) {
+    Log.info("%s [%d]: reveal %ldms out, beyond the hold cap — drawing now\r\n",
+             __FILE__, __LINE__, hold);
+    return;
+  }
+  Log.info("%s [%d]: holding %ldms for the shared reveal\r\n", __FILE__, __LINE__, hold);
+  delay(hold);
+}
+
+
 #ifndef BOARD_TRMNL_X
 // Create stub functions for the touchbar workaround
 void iqs323_task_i2c_lock(void) {}
@@ -1769,6 +1804,7 @@ static https_request_err_e downloadAndShow()
         return HTTPS_WRONG_IMAGE_SIZE;
       }
       Log.info("%s [%d]: Decoding image...\r\n", __FILE__, __LINE__);
+      holdForReveal();
       display_show_image(buffer, content_size, true);
       free(buffer);
       buffer = nullptr;
@@ -2032,6 +2068,7 @@ static https_request_err_e downloadAndShow()
             filesystem_purge_old_file(szTemp); // try to delete the old version or older than 24h
             writeImageToFile(szTemp, buffer, content_size);
             Log.info("%s [%d]: Decoding %s\r\n", __FILE__, __LINE__, (isPNG) ? "png" : "jpeg");
+            holdForReveal();
             display_show_image(buffer, content_size, true);
             DisplayedImage::remember(szTemp); // current image becomes the previous image
             if (buffer_malloc) {
@@ -2112,6 +2149,7 @@ static https_request_err_e downloadAndShow()
               writeImageToFile("/current.bmp", buffer, content_size);
             }
             Log.info("Free heap at before display - %d", ESP.getMaxAllocHeap());
+            holdForReveal();
             display_show_image(buffer, content_size, true);
             {
               char szTemp[36];
@@ -2329,6 +2367,9 @@ https_request_err_e handleApiDisplayResponse(ApiDisplayResponse &apiResponse)
       }
       Log.info("%s [%d]: refresh_rate: %d\r\n", __FILE__, __LINE__, rate);
       refreshInterval.applyServerRate(rate);
+      reveal_display_at = apiResponse.display_at;
+      reveal_server_now = apiResponse.server_now;
+      reveal_parsed_at = millis();
 
       if (reset_firmware)
       {
