@@ -1742,7 +1742,17 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
     {
         Log_info("Drawing PNG");
         iRefreshMode = png_to_epd(image_buffer, data_size, false);
-        if (iRefreshMode < 0) {
+        // != 0, NOT < 0. On this board (BOARD_X_CLASS, so the FastEPD branch)
+        // png_to_epd falls through to `return rc` from openRAM: PNG_SUCCESS
+        // (0) on success, and a POSITIVE PNGdec error code on failure —
+        // PNG_INVALID_PARAMETER 1, PNG_DECODE_ERROR 2, PNG_MEM_ERROR 3, up to
+        // PNG_QUIT_EARLY 8. A `< 0` test caught only the -1 case and let every
+        // positive error through, where it was then used AS the refresh mode
+        // (1 and 2 happen to collide with REFRESH_FAST and REFRESH_PARTIAL),
+        // so a failed decode drove a real panel update with no image behind it.
+        // 0 is the single success value on every branch compiled here:
+        // PNG_SUCCESS == REFRESH_FULL == 0.
+        if (iRefreshMode != PNG_SUCCESS) {
             Log_error("display_show_image: PNG decode failed (%d) — nothing drawn", iRefreshMode);
             return false;
         }
@@ -1750,7 +1760,9 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
     else if (MOTOSHORT(image_buffer) == 0xffd8) {
         Log_info("Drawing JPEG");
         iRefreshMode = jpeg_to_epd(image_buffer, data_size);
-        if (iRefreshMode < 0) {
+        // Same shape as the PNG case: jpeg_to_epd sets rc = REFRESH_FULL (0)
+        // on success and returns JPEG_ERROR_MEMORY (positive) or -1 otherwise.
+        if (iRefreshMode != 0) {
             Log_error("display_show_image: JPEG decode failed (%d) — nothing drawn", iRefreshMode);
             return false;
         }

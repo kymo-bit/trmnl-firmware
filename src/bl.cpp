@@ -1795,7 +1795,10 @@ static https_request_err_e downloadAndShow()
         buffer = nullptr;
         return result;
       }
-      DisplayedImage::remember(szTemp);
+      // (the early remember() that used to sit here is gone: it recorded the
+      // image as displayed BEFORE the read-and-draw below, so a failed draw on
+      // the cached path was still marked done — the same hole the guarded
+      // remember() further down exists to close. The draw site records it.)
       Log.info("%s [%d]: Reading %s from SPIFFS\r\n", __FILE__, __LINE__, szTemp);
       size_t content_size = filesystem_read_and_allocate(szTemp, &buffer);
       if (!buffer || content_size == 0) {
@@ -3292,7 +3295,13 @@ static void wifiErrorDeepSleep()
     break;
 
   default:
-    preferences.putInt(PREFERENCES_CONNECT_WIFI_RETRY_COUNT, 1);
+    // Pin the counter at the ladder's end rather than resetting it to 1. At 1
+    // the next failed wake re-walks 60 -> 180 -> 300 before reaching the
+    // hourly backoff below, so a multi-day outage pays that ladder on every
+    // cycle instead of settling into one wake an hour. Staying in `default`
+    // is the stable state while the network is gone; the counter is reset to
+    // 1 on the next SUCCESSFUL connect, which is where a reset belongs.
+    preferences.putInt(PREFERENCES_CONNECT_WIFI_RETRY_COUNT, 4);
     showMessageWithLogo(WIFI_RETRY_LIMIT);
     display_sleep();
     // SLEEP ON A TIMER, NOT ON THE BUTTON. This used to be
