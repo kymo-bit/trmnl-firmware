@@ -1805,10 +1805,14 @@ static https_request_err_e downloadAndShow()
       }
       Log.info("%s [%d]: Decoding image...\r\n", __FILE__, __LINE__);
       holdForReveal();
-      display_show_image(buffer, content_size, true);
+      bool drew = display_show_image(buffer, content_size, true);
       free(buffer);
       buffer = nullptr;
-      DisplayedImage::remember(szTemp); // current image becomes the previous image
+      if (drew) {
+        DisplayedImage::remember(szTemp); // current image becomes the previous image
+      } else {
+        Log_error("draw failed — NOT remembering %s, will retry next poll", szTemp);
+      }
       // Rotate NVS path keys: last ← current ← szTemp
       String _curPath = preferences.getString(PREFERENCES_CURRENT_PATH_KEY, "");
       String _lastPath = preferences.getString(PREFERENCES_LAST_PATH_KEY, "");
@@ -2069,8 +2073,15 @@ static https_request_err_e downloadAndShow()
             writeImageToFile(szTemp, buffer, content_size);
             Log.info("%s [%d]: Decoding %s\r\n", __FILE__, __LINE__, (isPNG) ? "png" : "jpeg");
             holdForReveal();
-            display_show_image(buffer, content_size, true);
-            DisplayedImage::remember(szTemp); // current image becomes the previous image
+            // Remember ONLY what actually reached the glass. Recording a
+            // failed draw makes it permanent — matches() skips the refresh
+            // forever after, and the panel holds a stale picture until a
+            // human changes the filename by hand.
+            if (display_show_image(buffer, content_size, true)) {
+              DisplayedImage::remember(szTemp);
+            } else {
+              Log_error("draw failed — NOT remembering %s, will retry next poll", szTemp);
+            }
             if (buffer_malloc) {
               Log.info("%s [%d]: Freeing the image buffer we allocated\r\n", __FILE__, __LINE__);
               free(buffer);
@@ -2150,11 +2161,15 @@ static https_request_err_e downloadAndShow()
             }
             Log.info("Free heap at before display - %d", ESP.getMaxAllocHeap());
             holdForReveal();
-            display_show_image(buffer, content_size, true);
             {
+              bool drew = display_show_image(buffer, content_size, true);
               char szTemp[36];
               filesystem_fix_filename(apiDisplayResult.response.filename.c_str(), szTemp);
-              DisplayedImage::remember(szTemp);
+              if (drew) {
+                DisplayedImage::remember(szTemp);
+              } else {
+                Log_error("draw failed — NOT remembering %s, will retry next poll", szTemp);
+              }
             }
 
             if (buffer_malloc) {

@@ -135,7 +135,8 @@ void Paint_DrawMultilineText(UWORD x_start, UWORD y_start, const char *message, 
  * @return none
  */
 
-void display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool bSkipClear = false);
+// true only if an image reached the glass — see the definition for why
+bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool bSkipClear = false);
 
 /**
  * @brief GALLERY_NO_BOOT_LOGO — resolve a logo asset to NULL when the build

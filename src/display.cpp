@@ -1688,7 +1688,15 @@ PNG *png = new PNG();
  * @param reverse shows if the color scheme is reverse
  * @return none
  */
-void display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool bSkipClear)
+// Returns TRUE only if an image actually reached the glass.
+//
+// This used to return void, and bl.cpp recorded the image as displayed on the
+// very next line regardless. A decode that failed, or an e-paper update that
+// failed, therefore became PERMANENT: DisplayedImage::matches() saw the
+// filename already remembered and skipped the refresh on every later poll, so
+// the panel sat on a stale picture until a human noticed and changed the
+// filename by hand. Cell 6 did exactly that on 2026-10-16.
+bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool bSkipClear)
 
 {
     bool isPNG = data_size >= 4 && MOTOLONG(image_buffer) == (int32_t)0x89504e47;
@@ -1734,10 +1742,18 @@ void display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
     {
         Log_info("Drawing PNG");
         iRefreshMode = png_to_epd(image_buffer, data_size, false);
+        if (iRefreshMode < 0) {
+            Log_error("display_show_image: PNG decode failed (%d) — nothing drawn", iRefreshMode);
+            return false;
+        }
     }
     else if (MOTOSHORT(image_buffer) == 0xffd8) {
         Log_info("Drawing JPEG");
         iRefreshMode = jpeg_to_epd(image_buffer, data_size);
+        if (iRefreshMode < 0) {
+            Log_error("display_show_image: JPEG decode failed (%d) — nothing drawn", iRefreshMode);
+            return false;
+        }
     }
     else // uncompressed BMP or Group5 compressed image
     {
@@ -1836,7 +1852,7 @@ void display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
         if (bAlloc) {
             bbep.freeBuffer();
         }
-        return;
+        return false;
     }
 
     if ((bbep.getPanelType() == EP426_800x480 || bbep.getPanelType() == EP426_800x480_4GRAY || bbep.getPanelType() == EP397_800x480 || bbep.getPanelType() == EP397_800x480_4GRAY) && iRefreshMode == REFRESH_PARTIAL) {
@@ -1867,6 +1883,7 @@ void display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
 #endif
     iUpdateCount++;
     Log_info("display_show_image end");
+    return true;
 }
 /**
  * @brief Function to read an image from the file system
