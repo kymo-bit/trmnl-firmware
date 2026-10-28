@@ -1,3 +1,4 @@
+#include "gallery_health.h"
 #include <Arduino.h>
 #include <display.h>
 #include <power.h>
@@ -1682,6 +1683,22 @@ PNG *png = new PNG();
     delete(png); // free the decoder instance
     return rc;
 } /* png_to_epd() */
+#ifdef BOARD_SEEED_XIAO_EE03
+// FastEPD keeps its state protected and has no accessor, and the IT8951 query
+// is a free function in its .inl taking that state; a subclass with no members
+// of its own reaches it without touching the library.
+bool it8951ProbeController(FASTEPDSTATE *pState, const char *label, bool send_sys_run, int vcom_selector);
+namespace {
+  struct FastEPDState : FASTEPD {
+    FASTEPDSTATE *state() { return &_state; }
+  };
+}
+static bool display_controller_answers()
+{
+  return it8951ProbeController(static_cast<FastEPDState &>(bbep).state(), "health", false, 0);
+}
+#endif // BOARD_SEEED_XIAO_EE03
+
 /**
  * @brief Function to show the image on the display
  * @param image_buffer pointer to the uint8_t image buffer
@@ -1754,6 +1771,9 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
         // PNG_SUCCESS == REFRESH_FULL == 0.
         if (iRefreshMode != PNG_SUCCESS) {
             Log_error("display_show_image: PNG decode failed (%d) — nothing drawn", iRefreshMode);
+            char why[24];
+            snprintf(why, sizeof(why), "fail/png-%d", iRefreshMode);
+            GalleryHealth::setDraw(why);
             return false;
         }
     }
@@ -1764,6 +1784,9 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
         // on success and returns JPEG_ERROR_MEMORY (positive) or -1 otherwise.
         if (iRefreshMode != 0) {
             Log_error("display_show_image: JPEG decode failed (%d) — nothing drawn", iRefreshMode);
+            char why[24];
+            snprintf(why, sizeof(why), "fail/jpeg-%d", iRefreshMode);
+            GalleryHealth::setDraw(why);
             return false;
         }
     }
@@ -1861,6 +1884,7 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
 #endif // !BOARD_SEEED_RETERMINAL_E1002
     if (!display_update_epaper(iRefreshMode, bWait)) {
         Log_error("display_show_image: e-paper update failed");
+        GalleryHealth::setDraw("fail/epd");
         if (bAlloc) {
             bbep.freeBuffer();
         }
@@ -1895,6 +1919,20 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
 #endif
     iUpdateCount++;
     Log_info("display_show_image end");
+#ifdef BOARD_SEEED_XIAO_EE03
+    // DID THE CONTROLLER ANSWER? FastEPD's IT8951 refresh reports success
+    // unconditionally, and every command before it waits for the controller's
+    // ready line for 3 s and then carries on regardless — so a loose ribbon or
+    // a hung controller looks exactly like a good draw. Ask the controller for
+    // its device info afterwards (read-only, the query its own start-up makes
+    // and ignores): a panel that cannot say its size did not draw. REPORTED,
+    // NOT ACTED ON: the start-up probe sequence it belongs to is switched off
+    // upstream, so its reliability on this board is unproven; a false alarm
+    // must not turn every healthy panel's wake into a redraw.
+    GalleryHealth::setDraw(display_controller_answers() ? "ok" : "ok/ctl-silent");
+#else
+    GalleryHealth::setDraw("ok");
+#endif
     return true;
 }
 /**

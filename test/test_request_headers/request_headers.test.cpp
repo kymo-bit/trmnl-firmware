@@ -157,6 +157,27 @@ void test_display_headers_wifi_band_omitted_when_empty(void) {
   TEST_ASSERT_FALSE(has(headers, "WiFi-Band"));
 }
 
+// gallery health (src/gallery_health.h): sent when known, omitted when not,
+// and after every header a stock server reads
+void test_display_headers_gallery_health_when_known(void) {
+  ApiDisplayInputs inputs = makeDisplayInputs();
+  inputs.displayed = "/cff9b0c620efef77~301.png";
+  inputs.lastDraw = "fail/png-2";
+  inputs.resetReason = "brownout/3";
+  HttpHeaderList headers = buildDisplayHeaders(inputs);
+  TEST_ASSERT_EQUAL_STRING("/cff9b0c620efef77~301.png", valueOf(headers, "Displayed").c_str());
+  TEST_ASSERT_EQUAL_STRING("fail/png-2", valueOf(headers, "Last-Draw").c_str());
+  TEST_ASSERT_EQUAL_STRING("brownout/3", valueOf(headers, "Reset-Reason").c_str());
+  TEST_ASSERT_TRUE(indexOf(headers, "Displayed") > indexOf(headers, "Height"));
+}
+
+void test_display_headers_gallery_health_omitted_when_unknown(void) {
+  HttpHeaderList headers = buildDisplayHeaders(makeDisplayInputs());
+  TEST_ASSERT_FALSE(has(headers, "Displayed"));
+  TEST_ASSERT_FALSE(has(headers, "Last-Draw"));
+  TEST_ASSERT_FALSE(has(headers, "Reset-Reason"));
+}
+
 // --- buildImageHeaders -----------------------------------------------------
 
 // The image request carries only auth headers (ID + Access-Token), shared by
@@ -218,6 +239,8 @@ void process() {
   RUN_TEST(test_display_headers_wifi_band_2_4);
   RUN_TEST(test_display_headers_wifi_band_5);
   RUN_TEST(test_display_headers_wifi_band_omitted_when_empty);
+  RUN_TEST(test_display_headers_gallery_health_when_known);
+  RUN_TEST(test_display_headers_gallery_health_omitted_when_unknown);
   RUN_TEST(test_image_headers_names_order_and_values);
   RUN_TEST(test_format_headers_newline_separated_no_trailing_newline);
   RUN_TEST(test_format_headers_empty_list_is_empty_string);

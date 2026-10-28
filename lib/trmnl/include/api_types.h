@@ -80,6 +80,10 @@ struct ApiDisplayInputs {
   int displayWidth;
   int displayHeight;
   SPECIAL_FUNCTION specialFunction;
+  // gallery health (src/gallery_health.h): sent only when known
+  String displayed;
+  String lastDraw;
+  String resetReason;
   UsbStatus usbStatus;
   bool imageCached;
   int prevWakeTime;

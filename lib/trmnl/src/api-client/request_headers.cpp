@@ -38,6 +38,11 @@ HttpHeaderList buildDisplayHeaders(const ApiDisplayInputs &inputs) {
 
   if (inputs.specialFunction != SF_NONE) headers.push_back({"special_function", "true"});
 
+  // gallery health, last, so every header before keeps its place
+  if (inputs.displayed.length() > 0) headers.push_back({"Displayed", inputs.displayed});
+  if (inputs.lastDraw.length() > 0) headers.push_back({"Last-Draw", inputs.lastDraw});
+  if (inputs.resetReason.length() > 0) headers.push_back({"Reset-Reason", inputs.resetReason});
+
   return headers;
 }
 

@@ -53,6 +53,7 @@
 #include <services/device_setup.h>
 #include "messages.h"
 #include "displayed_image.h"
+#include "gallery_health.h"
 #include <globals.h>
 #include "esp_ota_ops.h"
 const char *szHTTPErrors[] = {
@@ -821,6 +822,7 @@ void sensor_init(void)
  */
 void bl_init(void)
 {
+  GalleryHealth::noteBoot();
 #ifdef BOARD_SEEED_STICKY
   pinMode(45, OUTPUT); // power hold (DATA)
   pinMode(46, OUTPUT); // power lock (CLK)
@@ -1687,6 +1689,9 @@ ApiDisplayInputs loadApiDisplayInputs(Preferences &preferences)
   inputs.specialFunction = special_function;
   inputs.imageCached = bUsedCachedImage;
   inputs.prevWakeTime = iPrevWakeTime;
+  inputs.displayed = String(DisplayedImage::get());
+  inputs.lastDraw = String(GalleryHealth::lastDraw());
+  inputs.resetReason = String(GalleryHealth::resetReason());
   inputs.usbStatus = power().usbStatus();
   inputs.chargingStatus = power().chargingStatus();
 
@@ -1788,6 +1793,10 @@ static https_request_err_e downloadAndShow()
         load_prev_image(); // decode the older image into the previous buffer of FastEPD
       }
 #endif
+      // what the panel has to say goes NOW, on every poll that reached the
+      // server — not only after a download, which a panel redrawing from its
+      // own storage (or failing to) may never make again
+      submitStoredLogs();
       filesystem_fix_filename(apiDisplayResult.response.filename.c_str(), szTemp);
       if (DisplayedImage::matches(szTemp)) {
         // We just displayed the same image, don't refresh the display
@@ -1803,6 +1812,7 @@ static https_request_err_e downloadAndShow()
       size_t content_size = filesystem_read_and_allocate(szTemp, &buffer);
       if (!buffer || content_size == 0) {
         filesystem_file_delete(szTemp);
+        GalleryHealth::setDraw("fail/read");
         Log_error_submit("Cached image is empty or unreadable: %s", szTemp);
         return HTTPS_WRONG_IMAGE_SIZE;
       }
@@ -1814,7 +1824,12 @@ static https_request_err_e downloadAndShow()
       if (drew) {
         DisplayedImage::remember(szTemp); // current image becomes the previous image
       } else {
-        Log_error("draw failed — NOT remembering %s, will retry next poll", szTemp);
+        // REPORTED, and the stored copy goes: a copy that will not draw would
+        // otherwise be redrawn from storage on every wake and never fetched
+        // again. Deleted, the next poll downloads it fresh.
+        Log_error_submit("draw failed (%s) — NOT remembering %s; stored copy deleted, will download next poll",
+                         GalleryHealth::lastDraw(), szTemp);
+        filesystem_file_delete(szTemp);
       }
       // Rotate NVS path keys: last ← current ← szTemp
       String _curPath = preferences.getString(PREFERENCES_CURRENT_PATH_KEY, "");
@@ -2083,7 +2098,10 @@ static https_request_err_e downloadAndShow()
             if (display_show_image(buffer, content_size, true)) {
               DisplayedImage::remember(szTemp);
             } else {
-              Log_error("draw failed — NOT remembering %s, will retry next poll", szTemp);
+              // reported, and the stored copy goes (as on the cached path)
+              Log_error_submit("draw failed (%s) — NOT remembering %s; stored copy deleted, will download next poll",
+                               GalleryHealth::lastDraw(), szTemp);
+              filesystem_file_delete(szTemp);
             }
             if (buffer_malloc) {
               Log.info("%s [%d]: Freeing the image buffer we allocated\r\n", __FILE__, __LINE__);
