@@ -1,4 +1,5 @@
 #include "displayed_image.h"
+#include "gallery_health.h"
 
 #include <string.h>
 
@@ -24,6 +25,8 @@ namespace DisplayedImage {
   void remember(const char *filename) {
     strncpy(szPrevFile, filename, sizeof(szPrevFile) - 1);
     szPrevFile[sizeof(szPrevFile) - 1] = '\0';
+    // and for the server, kept through a reset (src/gallery_health.h)
+    if (szPrevFile[0] != '\0') GalleryHealth::noteShown(szPrevFile);
     if (szPrevFile[0] != '\0' && !everPainted()) {
       Preferences p;
       if (p.begin(NS, false)) {

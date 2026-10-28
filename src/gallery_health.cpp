@@ -13,9 +13,36 @@ namespace GalleryHealth {
   static const char *NS = "gallery";
   static const char *RESET = "rst";
   static const char *RESETS = "rstn";
+  static const char *DRAW = "draw";
+  static const char *SHOWN = "shown";
 
-  RTC_DATA_ATTR static char draw[32] = {0};
+  static char draw[32] = {0};
+  static char shownName[36] = {0};
   static char reset[32] = {0};
+  static bool loaded = false;
+
+  // read once per boot; NVS keeps them through resets and power cuts
+  static void load() {
+    if (loaded) return;
+    loaded = true;
+    Preferences p;
+    if (!p.begin(NS, true)) return;
+    strncpy(draw, p.getString(DRAW, "").c_str(), sizeof(draw) - 1);
+    strncpy(shownName, p.getString(SHOWN, "").c_str(), sizeof(shownName) - 1);
+    p.end();
+  }
+
+  // the value, written only when it changed
+  static void keep(const char *key, char *buf, size_t size, const char *value) {
+    load();
+    if (strncmp(buf, value, size - 1) == 0) return;
+    strncpy(buf, value, size - 1);
+    buf[size - 1] = '\0';
+    Preferences p;
+    if (!p.begin(NS, false)) return;
+    p.putString(key, buf);
+    p.end();
+  }
 
   static const char *name(esp_reset_reason_t r) {
     switch (r) {
@@ -51,10 +78,17 @@ namespace GalleryHealth {
 
   const char *resetReason() { return reset; }
 
-  void setDraw(const char *result) {
-    strncpy(draw, result, sizeof(draw) - 1);
-    draw[sizeof(draw) - 1] = '\0';
+  void setDraw(const char *result) { keep(DRAW, draw, sizeof(draw), result); }
+
+  const char *lastDraw() {
+    load();
+    return draw;
   }
 
-  const char *lastDraw() { return draw; }
+  void noteShown(const char *filename) { keep(SHOWN, shownName, sizeof(shownName), filename); }
+
+  const char *shown() {
+    load();
+    return shownName;
+  }
 }

@@ -1689,7 +1689,7 @@ ApiDisplayInputs loadApiDisplayInputs(Preferences &preferences)
   inputs.specialFunction = special_function;
   inputs.imageCached = bUsedCachedImage;
   inputs.prevWakeTime = iPrevWakeTime;
-  inputs.displayed = String(DisplayedImage::get());
+  inputs.displayed = String(GalleryHealth::shown());
   inputs.lastDraw = String(GalleryHealth::lastDraw());
   inputs.resetReason = String(GalleryHealth::resetReason());
   inputs.usbStatus = power().usbStatus();
