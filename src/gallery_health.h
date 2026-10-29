@@ -15,9 +15,9 @@
 //                many such boots there have been: "brownout/3"
 //   Panel-Info   the display controller after the last refresh, as key=value
 //                pairs (EE03; gallery-app docs/IMAGE-QUALITY-2026-10-28.md §2):
-//                "lut=1340;temp=21;was=14;fw=…;wf=…" — how long the refresh
-//                kept the waveform engine busy (a "+" if it was still busy at
-//                the cap), the waveform temperature after it and the one
+//                "upd=1290;lut=3;temp=8;was=14;fw=…;wf=…" — how long the
+//                library's refresh call took, how long the waveform engine
+//                stayed busy after it (a "+" if still busy at the cap), the waveform temperature after it and the one
 //                found before this build set it, and the controller's
 //                firmware and waveform (LUT) versions
 namespace GalleryHealth {

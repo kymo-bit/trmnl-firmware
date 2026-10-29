@@ -1700,15 +1700,17 @@ namespace {
 static FASTEPDSTATE *epd_state() { return static_cast<FastEPDState &>(bbep).state(); }
 
 // THE WAVEFORM'S TEMPERATURE (gallery-app docs/IMAGE-QUALITY-2026-10-28.md
-// §2.3). FastEPD's IT8951 start-up forces 14 °C, so every refresh ran the
-// panel's cold-band waveform in a heated room: driven harder than the room
-// needs, greys off their targets. Seeed's own driver for this panel sets the
-// room's temperature (16 °C until its sensor answers). The EE03 has no sensor
-// wired here, so the gallery's room, set before every refresh. The value the
-// controller held before is kept for the report.
+// §2.3), set before every refresh; the value the controller held before is
+// kept for the report. FastEPD's IT8951 start-up forces 14 °C, the cold band,
+// in a heated room. The room's real 21 °C was tried first (24230f2) and LOST
+// side by side: the owner saw more tonal range on the panel still at 14 °C
+// (2026-10-29). The cold waveform drives the ink harder, so deeper blacks and
+// cleaner whites. So colder still, 8 °C, on No. 2 beside No. 3 at 14 °C, to
+// see whether the range grows or the shadows start to crush.
 #ifndef GALLERY_EPD_TEMP_C
-#define GALLERY_EPD_TEMP_C 21
+#define GALLERY_EPD_TEMP_C 8
 #endif
+static uint32_t refreshStarted = 0;
 static uint16_t tempFound = 0;
 
 static uint16_t epd_temperature(FASTEPDSTATE *s)
@@ -1756,6 +1758,10 @@ static void epd_words_text(const uint16_t *w, char *out, size_t n)
 // it answered; `info` is the Panel-Info report.
 static bool epd_settle_refresh(char *info, size_t n)
 {
+  // how long FastEPD's refresh call itself took: about a second means its
+  // own waits on the ready line already outlast the waveform (24230f2 found
+  // the engine idle 3 ms after the call returned)
+  const uint32_t upd = millis() - refreshStarted;
   FASTEPDSTATE *s = epd_state();
   it8951WriteCmdCode(s, IT8951_TCON_SYS_RUN);
   const uint32_t t0 = millis();
@@ -1781,8 +1787,8 @@ static bool epd_settle_refresh(char *info, size_t n)
   char fw[17], wf[17];
   epd_words_text(dev.fw_version, fw, sizeof(fw));
   epd_words_text(dev.lut_version, wf, sizeof(wf));
-  snprintf(info, n, "lut=%lu%s;temp=%u;was=%u;fw=%s;wf=%s", (unsigned long)busy, late ? "+" : "", temp,
-           tempFound, fw, wf);
+  snprintf(info, n, "upd=%lu;lut=%lu%s;temp=%u;was=%u;fw=%s;wf=%s", (unsigned long)upd, (unsigned long)busy,
+           late ? "+" : "", temp, tempFound, fw, wf);
   Log_info("Panel-Info %s", info);
   return answered;
 }
@@ -2004,6 +2010,7 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
         Log_info("fullUpdate clear mode = %d\n", iClearMode);
 #ifdef BOARD_SEEED_XIAO_EE03
         epd_set_room_temperature();
+        refreshStarted = millis();
 #endif
         bbep.fullUpdate(iClearMode, false);
  //   }
