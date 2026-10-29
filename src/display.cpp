@@ -1701,14 +1701,14 @@ static FASTEPDSTATE *epd_state() { return static_cast<FastEPDState &>(bbep).stat
 
 // THE WAVEFORM'S TEMPERATURE (gallery-app docs/IMAGE-QUALITY-2026-10-28.md
 // §2.3), set before every refresh; the value the controller held before is
-// kept for the report. FastEPD's IT8951 start-up forces 14 °C, the cold band,
-// in a heated room. The room's real 21 °C was tried first (24230f2) and LOST
-// side by side: the owner saw more tonal range on the panel still at 14 °C
-// (2026-10-29). The cold waveform drives the ink harder, so deeper blacks and
-// cleaner whites. So colder still, 8 °C, on No. 2 beside No. 3 at 14 °C, to
-// see whether the range grows or the shadows start to crush.
+// kept for the report. 14 °C, FastEPD's own start-up value, CHOSEN BY EYE
+// side by side on the wall (owner, 2026-10-29), not inherited: the room's
+// real 21 °C gave less tonal range, and 8 °C came out blown out, grainy and
+// banded. The cold band drives the ink harder than a warm room needs, and on
+// these panels that is the better picture. Set here, explicitly, so a library
+// update that changes its start-up value cannot move it.
 #ifndef GALLERY_EPD_TEMP_C
-#define GALLERY_EPD_TEMP_C 8
+#define GALLERY_EPD_TEMP_C 14
 #endif
 static uint32_t refreshStarted = 0;
 static uint16_t tempFound = 0;
