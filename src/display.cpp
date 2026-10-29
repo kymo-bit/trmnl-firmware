@@ -1687,15 +1687,104 @@ PNG *png = new PNG();
 // FastEPD keeps its state protected and has no accessor, and the IT8951 query
 // is a free function in its .inl taking that state; a subclass with no members
 // of its own reaches it without touching the library.
-bool it8951ProbeController(FASTEPDSTATE *pState, const char *label, bool send_sys_run, int vcom_selector);
+void it8951WriteCmdCode(FASTEPDSTATE *pState, uint16_t cmd);
+void it8951WriteData(FASTEPDSTATE *pState, uint16_t data);
+uint16_t it8951ReadData(FASTEPDSTATE *pState);
+void it8951ReadNData(FASTEPDSTATE *pState, uint16_t *buf, uint32_t word_count);
+uint16_t it8951ReadReg(FASTEPDSTATE *pState, uint16_t addr);
 namespace {
   struct FastEPDState : FASTEPD {
     FASTEPDSTATE *state() { return &_state; }
   };
 }
-static bool display_controller_answers()
+static FASTEPDSTATE *epd_state() { return static_cast<FastEPDState &>(bbep).state(); }
+
+// THE WAVEFORM'S TEMPERATURE (gallery-app docs/IMAGE-QUALITY-2026-10-28.md
+// §2.3). FastEPD's IT8951 start-up forces 14 °C, so every refresh ran the
+// panel's cold-band waveform in a heated room: driven harder than the room
+// needs, greys off their targets. Seeed's own driver for this panel sets the
+// room's temperature (16 °C until its sensor answers). The EE03 has no sensor
+// wired here, so the gallery's room, set before every refresh. The value the
+// controller held before is kept for the report.
+#ifndef GALLERY_EPD_TEMP_C
+#define GALLERY_EPD_TEMP_C 21
+#endif
+static uint16_t tempFound = 0;
+
+static uint16_t epd_temperature(FASTEPDSTATE *s)
 {
-  return it8951ProbeController(static_cast<FastEPDState &>(bbep).state(), "health", false, 0);
+  it8951WriteCmdCode(s, USDEF_I80_CMD_TEMP);
+  it8951WriteData(s, 0x0000); // get
+  return it8951ReadData(s) & 0xff;
+}
+
+static void epd_set_room_temperature()
+{
+  FASTEPDSTATE *s = epd_state();
+  tempFound = epd_temperature(s);
+  it8951WriteCmdCode(s, USDEF_I80_CMD_TEMP);
+  it8951WriteData(s, 0x0001); // set
+  it8951WriteData(s, GALLERY_EPD_TEMP_C);
+}
+
+// eight words of the controller's device info as text, high byte first (the
+// order SPI.transfer16 hands them over), printable characters only
+static void epd_words_text(const uint16_t *w, char *out, size_t n)
+{
+  size_t o = 0;
+  for (int i = 0; i < 8 && o + 1 < n; i++) {
+    const char c[2] = {char(w[i] >> 8), char(w[i] & 0xff)};
+    for (char ch : c) {
+      if (ch == 0) {
+        out[o] = '\0';
+        return;
+      }
+      if (ch > 32 && ch < 127 && ch != ';' && o + 1 < n) out[o++] = ch;
+    }
+  }
+  out[o] = '\0';
+}
+
+// LET THE REFRESH FINISH (§2.1). FastEPD's 4-bit writer starts the GC16 and
+// sends STANDBY at once, waiting only for the host-ready line, which says the
+// controller took the command, not that the waveform is done (a GC16 takes
+// about a second). display_sleep() then sleeps the controller and drops its
+// power. Waveshare's and Seeed's drivers poll the waveform engine (LUTAFSR)
+// until idle instead. So: back to run, wait for the engine (5 s at most), ask
+// the controller what it is while it is awake (the health probe used to ask
+// a controller already sent to standby), then standby again. Returns whether
+// it answered; `info` is the Panel-Info report.
+static bool epd_settle_refresh(char *info, size_t n)
+{
+  FASTEPDSTATE *s = epd_state();
+  it8951WriteCmdCode(s, IT8951_TCON_SYS_RUN);
+  const uint32_t t0 = millis();
+  bool late = false;
+  while (it8951ReadReg(s, IT8951_REG_LUTAFSR) != 0) {
+    if (millis() - t0 > 5000) {
+      late = true;
+      break;
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  const uint32_t busy = millis() - t0;
+
+  IT8951DevInfo dev;
+  memset(&dev, 0, sizeof(dev));
+  it8951WriteCmdCode(s, USDEF_I80_CMD_GET_DEV_INFO);
+  it8951ReadNData(s, reinterpret_cast<uint16_t *>(&dev), sizeof(IT8951DevInfo) / 2);
+  const bool answered = dev.panel_width > 0 && dev.panel_width < 10000 && dev.panel_height > 0 &&
+                        dev.panel_height < 10000;
+  const uint16_t temp = epd_temperature(s);
+  it8951WriteCmdCode(s, IT8951_TCON_STANDBY);
+
+  char fw[17], wf[17];
+  epd_words_text(dev.fw_version, fw, sizeof(fw));
+  epd_words_text(dev.lut_version, wf, sizeof(wf));
+  snprintf(info, n, "lut=%lu%s;temp=%u;was=%u;fw=%s;wf=%s", (unsigned long)busy, late ? "+" : "", temp,
+           tempFound, fw, wf);
+  Log_info("Panel-Info %s", info);
+  return answered;
 }
 #endif // BOARD_SEEED_XIAO_EE03
 
@@ -1913,6 +2002,9 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
         int iClearMode = bSkipClear ? CLEAR_NONE
                                    : ((iUpdateCount & 7) == 0 || (iTempProfile > 0)) ? CLEAR_SLOW : CLEAR_FAST;
         Log_info("fullUpdate clear mode = %d\n", iClearMode);
+#ifdef BOARD_SEEED_XIAO_EE03
+        epd_set_room_temperature();
+#endif
         bbep.fullUpdate(iClearMode, false);
  //   }
  }
@@ -1929,7 +2021,12 @@ bool display_show_image(uint8_t *image_buffer, int data_size, bool bWait, bool b
     // NOT ACTED ON: the start-up probe sequence it belongs to is switched off
     // upstream, so its reliability on this board is unproven; a false alarm
     // must not turn every healthy panel's wake into a redraw.
-    GalleryHealth::setDraw(display_controller_answers() ? "ok" : "ok/ctl-silent");
+    {
+      char info[96];
+      const bool answered = epd_settle_refresh(info, sizeof(info));
+      GalleryHealth::setPanel(info);
+      GalleryHealth::setDraw(answered ? "ok" : "ok/ctl-silent");
+    }
 #else
     GalleryHealth::setDraw("ok");
 #endif

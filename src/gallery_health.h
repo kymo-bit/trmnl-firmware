@@ -13,6 +13,13 @@
 //                the query made after the refresh
 //   Reset-Reason the last reset that was not a wake from deep sleep, and how
 //                many such boots there have been: "brownout/3"
+//   Panel-Info   the display controller after the last refresh, as key=value
+//                pairs (EE03; gallery-app docs/IMAGE-QUALITY-2026-10-28.md §2):
+//                "lut=1340;temp=21;was=14;fw=…;wf=…" — how long the refresh
+//                kept the waveform engine busy (a "+" if it was still busy at
+//                the cap), the waveform temperature after it and the one
+//                found before this build set it, and the controller's
+//                firmware and waveform (LUT) versions
 namespace GalleryHealth {
   // once per boot, before the first poll
   void noteBoot();
@@ -32,4 +39,9 @@ namespace GalleryHealth {
   void noteShown(const char *filename);
   // "" until a picture has ever reached the glass
   const char *shown();
+
+  // the controller's report after the last refresh, kept like the draw
+  void setPanel(const char *info);
+  // "" until a refresh has reported
+  const char *panel();
 } // namespace GalleryHealth

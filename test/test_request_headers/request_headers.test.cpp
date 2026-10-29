@@ -164,10 +164,12 @@ void test_display_headers_gallery_health_when_known(void) {
   inputs.displayed = "/cff9b0c620efef77~301.png";
   inputs.lastDraw = "fail/png-2";
   inputs.resetReason = "brownout/3";
+  inputs.panelInfo = "lut=1340;temp=21;was=14;fw=SWv_0.2.1T;wf=M841";
   HttpHeaderList headers = buildDisplayHeaders(inputs);
   TEST_ASSERT_EQUAL_STRING("/cff9b0c620efef77~301.png", valueOf(headers, "Displayed").c_str());
   TEST_ASSERT_EQUAL_STRING("fail/png-2", valueOf(headers, "Last-Draw").c_str());
   TEST_ASSERT_EQUAL_STRING("brownout/3", valueOf(headers, "Reset-Reason").c_str());
+  TEST_ASSERT_EQUAL_STRING("lut=1340;temp=21;was=14;fw=SWv_0.2.1T;wf=M841", valueOf(headers, "Panel-Info").c_str());
   TEST_ASSERT_TRUE(indexOf(headers, "Displayed") > indexOf(headers, "Height"));
 }
 
@@ -176,6 +178,7 @@ void test_display_headers_gallery_health_omitted_when_unknown(void) {
   TEST_ASSERT_FALSE(has(headers, "Displayed"));
   TEST_ASSERT_FALSE(has(headers, "Last-Draw"));
   TEST_ASSERT_FALSE(has(headers, "Reset-Reason"));
+  TEST_ASSERT_FALSE(has(headers, "Panel-Info"));
 }
 
 // --- buildImageHeaders -----------------------------------------------------

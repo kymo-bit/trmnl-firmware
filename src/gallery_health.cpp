@@ -14,10 +14,12 @@ namespace GalleryHealth {
   static const char *RESETS = "rstn";
   static const char *DRAW = "draw";
   static const char *SHOWN = "shown";
+  static const char *PANEL = "panel";
 
   static char draw[32] = {0};
   static char shownName[36] = {0};
   static char reset[32] = {0};
+  static char panelInfo[96] = {0};
   static bool loaded = false;
 
   // read once per boot; NVS keeps them through resets and power cuts
@@ -28,6 +30,7 @@ namespace GalleryHealth {
     if (!p.begin(NS, true)) return;
     strncpy(draw, p.getString(DRAW, "").c_str(), sizeof(draw) - 1);
     strncpy(shownName, p.getString(SHOWN, "").c_str(), sizeof(shownName) - 1);
+    strncpy(panelInfo, p.getString(PANEL, "").c_str(), sizeof(panelInfo) - 1);
     p.end();
   }
 
@@ -99,5 +102,12 @@ namespace GalleryHealth {
   const char *shown() {
     load();
     return shownName;
+  }
+
+  void setPanel(const char *info) { keep(PANEL, panelInfo, sizeof(panelInfo), info); }
+
+  const char *panel() {
+    load();
+    return panelInfo;
   }
 } // namespace GalleryHealth

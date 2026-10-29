@@ -84,6 +84,7 @@ struct ApiDisplayInputs {
   String displayed;
   String lastDraw;
   String resetReason;
+  String panelInfo;
   UsbStatus usbStatus;
   bool imageCached;
   int prevWakeTime;

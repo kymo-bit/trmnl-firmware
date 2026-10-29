@@ -1692,6 +1692,7 @@ ApiDisplayInputs loadApiDisplayInputs(Preferences &preferences)
   inputs.displayed = String(GalleryHealth::shown());
   inputs.lastDraw = String(GalleryHealth::lastDraw());
   inputs.resetReason = String(GalleryHealth::resetReason());
+  inputs.panelInfo = String(GalleryHealth::panel());
   inputs.usbStatus = power().usbStatus();
   inputs.chargingStatus = power().chargingStatus();
 

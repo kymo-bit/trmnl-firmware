@@ -42,6 +42,7 @@ HttpHeaderList buildDisplayHeaders(const ApiDisplayInputs &inputs) {
   if (inputs.displayed.length() > 0) headers.push_back({"Displayed", inputs.displayed});
   if (inputs.lastDraw.length() > 0) headers.push_back({"Last-Draw", inputs.lastDraw});
   if (inputs.resetReason.length() > 0) headers.push_back({"Reset-Reason", inputs.resetReason});
+  if (inputs.panelInfo.length() > 0) headers.push_back({"Panel-Info", inputs.panelInfo});
 
   return headers;
 }
