@@ -153,8 +153,7 @@ void test_server_rate_is_capped(void) {
   // arms the timer years out — on a mat-mounted panel that is death, not a nap.
   MemoryPersistence persistence;
   RefreshInterval refreshInterval(persistence);
-  TEST_ASSERT_EQUAL_UINT32(RefreshInterval::MAX_SERVER_SECONDS,
-                           refreshInterval.applyServerRate((uint32_t)-1));
+  TEST_ASSERT_EQUAL_UINT32(RefreshInterval::MAX_SERVER_SECONDS, refreshInterval.applyServerRate((uint32_t)-1));
   TEST_ASSERT_EQUAL_UINT32(RefreshInterval::MAX_SERVER_SECONDS, refreshInterval.seconds());
 }
 

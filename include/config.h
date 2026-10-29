@@ -47,11 +47,13 @@
 #define DISPLAY_BMP_IMAGE_SIZE 48062 // in bytes - 62 bytes - header; 48000 bytes - bitmap (480*800 1bpp) / 8
 #define DEFAULT_IMAGE_SIZE     48000
 #if defined(BOARD_X_CLASS)
-#define MAX_IMAGE_SIZE 2000000 // gallery: raised from 750000 — busy 16-grey plates dither past 750KB. Buffer is malloc'd at the actual image size from 8MB PSRAM, so a high cap costs no RAM.
+#define MAX_IMAGE_SIZE                                                                                                 \
+  2000000 // gallery: raised from 750000 — busy 16-grey plates dither past 750KB. Buffer is malloc'd at the actual image
+          // size from 8MB PSRAM, so a high cap costs no RAM.
 #else
 #define MAX_IMAGE_SIZE 90000 // largest compressed image we can receive
 #endif
-#define SLEEP_uS_TO_S_FACTOR 1000000           /* Conversion factor for micro seconds to seconds */
+#define SLEEP_uS_TO_S_FACTOR 1000000 /* Conversion factor for micro seconds to seconds */
 
 // Different display profiles
 #define TEMP_PROFILE_DEFAULT 0
@@ -119,7 +121,7 @@
 #define DEVICE_MODEL "seeed_esp32c3"
 #define PIN_INTERRUPT                                                                                                  \
   9 // the boot button on the XIAO ESP32-C3, this button can't be used as wakeup  source though
-                        // because it's not in the RTC GPIO group. Instead, you can always use the reset button to
+    // because it's not in the RTC GPIO group. Instead, you can always use the reset button to
     // wake up the device. Resetting WiFi configuration needs special routine - press reset button
     // then press the boot button in less than 2 seconds, and hold it for 5 seconds.
 #define FAKE_BATTERY_VOLTAGE
@@ -141,8 +143,8 @@
 #define PIN_INTERRUPT     3 // the green button
 #define PIN_VBAT_SWITCH   21 // load switch enable pin for battery voltage measurement
 #define VBAT_SWITCH_LEVEL HIGH // load switch enable pin active level
-#define PIN_BUZZER        45          // passive buzzer (MLT-8530) via NPN transistor
-#define BUZZER_FREQ       2700       // resonant frequency of MLT-8530 in Hz
+#define PIN_BUZZER        45 // passive buzzer (MLT-8530) via NPN transistor
+#define BUZZER_FREQ       2700 // resonant frequency of MLT-8530 in Hz
 #elif defined(BOARD_SEEED_RETERMINAL_E1002)
 #define DEVICE_MODEL      "reterminal_e1002"
 #define PIN_INTERRUPT     3 // the green button
@@ -202,8 +204,7 @@
 #endif
 
 #if defined(BOARD_XIAO_EPAPER_DISPLAY) || defined(BOARD_SEEED_RETERMINAL_E1001) ||                                     \
-  defined(BOARD_SEEED_RETERMINAL_E1002) || defined(BOARD_SEEED_RETERMINAL_E1003) ||                                    \
-  defined(BOARD_SEEED_XIAO_EE03)
+  defined(BOARD_SEEED_RETERMINAL_E1002) || defined(BOARD_SEEED_RETERMINAL_E1003) || defined(BOARD_SEEED_XIAO_EE03)
 #define PIN_BATTERY 1
 #elif defined(BOARD_XTEINK_X4)
 #define PIN_BATTERY 0
@@ -213,18 +214,18 @@
 
 // #define FAKE_BATTERY_VOLTAGE // Uncomment to report 4.2V instead of reading ADC
 
-#define BUTTON_HOLD_TIME                   5000
-#define BUTTON_MEDIUM_HOLD_TIME            1000
-#define BUTTON_SOFT_RESET_TIME             15000
-#define BUTTON_DOUBLE_CLICK_WINDOW         800
+#define BUTTON_HOLD_TIME           5000
+#define BUTTON_MEDIUM_HOLD_TIME    1000
+#define BUTTON_SOFT_RESET_TIME     15000
+#define BUTTON_DOUBLE_CLICK_WINDOW 800
 
-#define SERVER_MAX_RETRIES                 3
+#define SERVER_MAX_RETRIES         3
 // Guarded so a build can bake in its own default with -D API_BASE_URL=...
 // Upstream defines this unconditionally, which makes the flag a redefinition
 // warning. The NVS value still wins wherever one is stored, so this only
 // changes where a factory-fresh board points before it has been provisioned.
 #ifndef API_BASE_URL
-#define API_BASE_URL                       "http://192.168.4.41:8000"  // gallery BYOS server (baked in)
+#define API_BASE_URL "http://192.168.4.41:8000" // gallery BYOS server (baked in)
 #endif
 
 // Abort an image download when the stream goes this long with no data.

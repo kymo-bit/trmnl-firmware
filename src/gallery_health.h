@@ -32,4 +32,4 @@ namespace GalleryHealth {
   void noteShown(const char *filename);
   // "" until a picture has ever reached the glass
   const char *shown();
-}
+} // namespace GalleryHealth

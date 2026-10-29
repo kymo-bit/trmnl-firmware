@@ -79,10 +79,9 @@ void tearDown(void) {
 void test_parseResponse_apiDisplay_carries_the_reveal(void) {
   // Both instants come from the server's clock; the panel waits their
   // difference, so it needs no clock of its own.
-  String input =
-      "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\","
-      "\"refresh_rate\":1800,\"display_at\":1792191330.5,"
-      "\"server_now\":1792191300.25}";
+  String input = "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\","
+                 "\"refresh_rate\":1800,\"display_at\":1792191330.5,"
+                 "\"server_now\":1792191300.25}";
   auto res = parseResponse_apiDisplay(input);
   TEST_ASSERT_EQUAL(ApiDisplayOutcome::Ok, res.outcome);
   TEST_ASSERT_TRUE(res.display_at > 1792191330.4 && res.display_at < 1792191330.6);
@@ -95,8 +94,7 @@ void test_parseResponse_apiDisplay_carries_the_reveal(void) {
 void test_parseResponse_apiDisplay_reveal_absent_is_zero(void) {
   // Almost every poll carries no reveal. Zero is the "nothing pending" value
   // and must never be mistaken for an instant to wait for.
-  String input =
-      "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\",\"refresh_rate\":1800}";
+  String input = "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\",\"refresh_rate\":1800}";
   auto res = parseResponse_apiDisplay(input);
   TEST_ASSERT_EQUAL(ApiDisplayOutcome::Ok, res.outcome);
   TEST_ASSERT_TRUE(res.display_at == 0.0);
@@ -105,9 +103,8 @@ void test_parseResponse_apiDisplay_reveal_absent_is_zero(void) {
 
 void test_parseResponse_apiDisplay_reveal_null_is_zero(void) {
   // The server sends JSON null rather than omitting the keys when idle.
-  String input =
-      "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\","
-      "\"refresh_rate\":1800,\"display_at\":null,\"server_now\":null}";
+  String input = "{\"status\":0,\"image_url\":\"u\",\"filename\":\"f\","
+                 "\"refresh_rate\":1800,\"display_at\":null,\"server_now\":null}";
   auto res = parseResponse_apiDisplay(input);
   TEST_ASSERT_TRUE(res.display_at == 0.0);
   TEST_ASSERT_TRUE(res.server_now == 0.0);

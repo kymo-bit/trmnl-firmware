@@ -1,9 +1,8 @@
 #include "gallery_health.h"
 
-#include <string.h>
-#include <stdio.h>
-
 #include <Preferences.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "esp_attr.h"
 #include "esp_system.h"
@@ -46,16 +45,26 @@ namespace GalleryHealth {
 
   static const char *name(esp_reset_reason_t r) {
     switch (r) {
-      case ESP_RST_POWERON: return "poweron";
-      case ESP_RST_EXT: return "external";
-      case ESP_RST_SW: return "software";
-      case ESP_RST_PANIC: return "panic";
-      case ESP_RST_INT_WDT: return "int-wdt";
-      case ESP_RST_TASK_WDT: return "task-wdt";
-      case ESP_RST_WDT: return "wdt";
-      case ESP_RST_BROWNOUT: return "brownout";
-      case ESP_RST_SDIO: return "sdio";
-      default: return "unknown";
+    case ESP_RST_POWERON:
+      return "poweron";
+    case ESP_RST_EXT:
+      return "external";
+    case ESP_RST_SW:
+      return "software";
+    case ESP_RST_PANIC:
+      return "panic";
+    case ESP_RST_INT_WDT:
+      return "int-wdt";
+    case ESP_RST_TASK_WDT:
+      return "task-wdt";
+    case ESP_RST_WDT:
+      return "wdt";
+    case ESP_RST_BROWNOUT:
+      return "brownout";
+    case ESP_RST_SDIO:
+      return "sdio";
+    default:
+      return "unknown";
     }
   }
 
@@ -91,4 +100,4 @@ namespace GalleryHealth {
     load();
     return shownName;
   }
-}
+} // namespace GalleryHealth

@@ -1,11 +1,10 @@
 #include "displayed_image.h"
-#include "gallery_health.h"
-
-#include <string.h>
 
 #include <Preferences.h>
+#include <string.h>
 
 #include "esp_attr.h"
+#include "gallery_health.h"
 
 namespace DisplayedImage {
     // SPIFFS path of the image currently on the display
